@@ -1,0 +1,17 @@
+# Fetched corpora are never committed: the pre-1965 NYT puzzles are public
+# domain, but the packaged archives and any modern puzzles are not ours to
+# redistribute. corpus/nyt/ is written locally by scripts/write_nyt_2021_05_28.py.
+corpus/xd/
+corpus/puz/
+corpus/nyt/
+
+# Run outputs. results/synthetic-sweep.json is committed deliberately -- it is
+# the offline evidence in REPORT.md.
+results/run-*
+results/*/trace.jsonl
+results/live-*.jsonl
+
+__pycache__/
+*.pyc
+.venv/
+.env

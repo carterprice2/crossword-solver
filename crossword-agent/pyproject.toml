@@ -1,0 +1,18 @@
+[project]
+name = "crossword-agent"
+version = "0.1.0"
+description = "A crossword-solving agent and evaluation harness, running on Nebius Token Factory."
+requires-python = ">=3.11"
+# No runtime dependencies, on purpose. The Nebius Token Factory API is
+# OpenAI-compatible REST, so `crossword/client.py` speaks it over urllib.
+# See README, "Why no dependencies".
+dependencies = []
+
+[project.optional-dependencies]
+sdk = ["openai>=1.40"]
+
+[project.scripts]
+crossword = "crossword.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["crossword*"]

@@ -1,0 +1,236 @@
+{
+  "puzzles": [
+    {
+      "id": "mini-07-00-0",
+      "path": "mini/mini-07-00-0.xd",
+      "size": 7,
+      "template": "7x7-00",
+      "seed": 0,
+      "slots": 16,
+      "block_density": 0.3469,
+      "max_slot_length": 5,
+      "clue_types": {
+        "definition": 9,
+        "proper": 7
+      },
+      "provenance": "generated",
+      "fill_seconds": 0.042,
+      "fill_nodes": 50
+    },
+    {
+      "id": "mini-07-00-1",
+      "path": "mini/mini-07-00-1.xd",
+      "size": 7,
+      "template": "7x7-00",
+      "seed": 1,
+      "slots": 16,
+      "block_density": 0.3469,
+      "max_slot_length": 5,
+      "clue_types": {
+        "definition": 9,
+        "proper": 7
+      },
+      "provenance": "generated",
+      "fill_seconds": 0.03,
+      "fill_nodes": 57
+    },
+    {
+      "id": "mini-07-01-0",
+      "path": "mini/mini-07-01-0.xd",
+      "size": 7,
+      "template": "7x7-01",
+      "seed": 0,
+      "slots": 16,
+      "block_density": 0.3469,
+      "max_slot_length": 5,
+      "clue_types": {
+        "definition": 12,
+        "proper": 4
+      },
+      "provenance": "generated",
+      "fill_seconds": 0.023,
+      "fill_nodes": 20
+    },
+    {
+      "id": "mini-07-01-1",
+      "path": "mini/mini-07-01-1.xd",
+      "size": 7,
+      "template": "7x7-01",
+      "seed": 1,
+      "slots": 16,
+      "block_density": 0.3469,
+      "max_slot_length": 5,
+      "clue_types": {
+        "definition": 12,
+        "proper": 4
+      },
+      "provenance": "generated",
+      "fill_seconds": 0.016,
+      "fill_nodes": 24
+    },
+    {
+      "id": "mini-09-00-0",
+      "path": "mini/mini-09-00-0.xd",
+      "size": 9,
+      "template": "9x9-00",
+      "seed": 0,
+      "slots": 32,
+      "block_density": 0.1605,
+      "max_slot_length": 6,
+      "clue_types": {
+        "crosswordese": 1,
+        "definition": 24,
+        "proper": 7
+      },
+      "provenance": "generated",
+      "fill_seconds": 11.575,
+      "fill_nodes": 7142
+    },
+    {
+      "id": "mini-09-00-1",
+      "path": "mini/mini-09-00-1.xd",
+      "size": 9,
+      "template": "9x9-00",
+      "seed": 1,
+      "slots": 32,
+      "block_density": 0.1605,
+      "max_slot_length": 6,
+      "clue_types": {
+        "crosswordese": 1,
+        "definition": 24,
+        "proper": 7
+      },
+      "provenance": "generated",
+      "fill_seconds": 4.493,
+      "fill_nodes": 7207
+    },
+    {
+      "id": "mini-09-01-0",
+      "path": "mini/mini-09-01-0.xd",
+      "size": 9,
+      "template": "9x9-01",
+      "seed": 0,
+      "slots": 32,
+      "block_density": 0.2099,
+      "max_slot_length": 6,
+      "clue_types": {
+        "crosswordese": 1,
+        "definition": 20,
+        "proper": 11
+      },
+      "provenance": "generated",
+      "fill_seconds": 4.92,
+      "fill_nodes": 4273
+    },
+    {
+      "id": "mini-09-01-1",
+      "path": "mini/mini-09-01-1.xd",
+      "size": 9,
+      "template": "9x9-01",
+      "seed": 1,
+      "slots": 32,
+      "block_density": 0.2099,
+      "max_slot_length": 6,
+      "clue_types": {
+        "crosswordese": 1,
+        "definition": 20,
+        "proper": 11
+      },
+      "provenance": "generated",
+      "fill_seconds": 2.308,
+      "fill_nodes": 4284
+    },
+    {
+      "id": "mini-11-04-0",
+      "path": "mini/mini-11-04-0.xd",
+      "size": 11,
+      "template": "11x11-04",
+      "seed": 0,
+      "slots": 42,
+      "block_density": 0.2314,
+      "max_slot_length": 6,
+      "clue_types": {
+        "definition": 31,
+        "proper": 11
+      },
+      "provenance": "generated",
+      "fill_seconds": 6.416,
+      "fill_nodes": 1156
+    },
+    {
+      "id": "mini-11-04-1",
+      "path": "mini/mini-11-04-1.xd",
+      "size": 11,
+      "template": "11x11-04",
+      "seed": 1,
+      "slots": 42,
+      "block_density": 0.2314,
+      "max_slot_length": 6,
+      "clue_types": {
+        "definition": 31,
+        "proper": 11
+      },
+      "provenance": "generated",
+      "fill_seconds": 1.272,
+      "fill_nodes": 1122
+    },
+    {
+      "id": "mini-11-06-0",
+      "path": "mini/mini-11-06-0.xd",
+      "size": 11,
+      "template": "11x11-06",
+      "seed": 0,
+      "slots": 44,
+      "block_density": 0.2397,
+      "max_slot_length": 6,
+      "clue_types": {
+        "definition": 37,
+        "proper": 7
+      },
+      "provenance": "generated",
+      "fill_seconds": 4.734,
+      "fill_nodes": 1450
+    },
+    {
+      "id": "mini-11-06-1",
+      "path": "mini/mini-11-06-1.xd",
+      "size": 11,
+      "template": "11x11-06",
+      "seed": 1,
+      "slots": 44,
+      "block_density": 0.2397,
+      "max_slot_length": 6,
+      "clue_types": {
+        "definition": 38,
+        "proper": 6
+      },
+      "provenance": "generated",
+      "fill_seconds": 1.826,
+      "fill_nodes": 1734
+    }
+  ],
+  "bank": {
+    "entries": 8523,
+    "by_length": {
+      "3": 182,
+      "4": 731,
+      "5": 1314,
+      "6": 1871,
+      "7": 2263,
+      "8": 2162
+    },
+    "sources": [
+      {
+        "name": "dwyl/english-words",
+        "file": "words_alpha.txt",
+        "license": "Unlicense (public domain)"
+      },
+      {
+        "name": "matthewreagan/WebstersEnglishDictionary",
+        "file": "dictionary.json",
+        "license": "Webster's 1913, public domain via Project Gutenberg"
+      }
+    ]
+  },
+  "note": "Generated puzzles, never published anywhere. They are the contamination-free slice of the evaluation: no model can have memorized them. Clues are condensed Webster 1913 definitions, so they are definitional rather than NYT-style -- this set is a control, not a difficulty proxy for real crosswords."
+}
