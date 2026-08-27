@@ -545,6 +545,7 @@ class Solver:
                 filled=len(filled),
                 icr=(agree / total) if total else 1.0,
                 nodes=getattr(result_search, "nodes", 0),
+                nogoods=getattr(result_search, "nogoods", 0),
                 grid=puzzle.grid.render(cells_from_assignment(assignment, graph)),
             )
 

@@ -13,7 +13,15 @@ from crossword.agent.constraints import (
     pattern_filter,
     soft_ac3,
 )
-from crossword.agent.search import solve as search_solve
+from crossword.agent.search import (
+    NogoodCache,
+    eliminated_count,
+    fits_cells,
+    next_slot,
+    remaining_legal,
+    solve as search_solve,
+    value_order,
+)
 from crossword.agent.solver import Solver, SolverConfig
 from crossword.client import OracleClient, OracleConfig
 from crossword.eval.metrics import score_solution
@@ -234,6 +242,71 @@ class TestSearch(unittest.TestCase):
         )
         if spelled:
             self.assertNotEqual(spelled, "LFA")
+
+    def test_mrv_picks_the_slot_with_fewest_fits(self):
+        """Dynamic MRV: after the first letter of A1 is C, D1 has one fit (CAB)
+        and D2 still has two."""
+        cells = {(0, 0): "C"}
+        options = {
+            "D1": [("CAB", 0.0, 0.9), ("XYZ", 0.0, 0.4), (WILDCARD, 0.0, 0.0)],
+            "D2": [("ARE", 0.0, 0.9), ("ORE", 0.0, 0.5), (WILDCARD, 0.0, 0.0)],
+        }
+        unassigned = ["D1", "D2"]
+        self.assertEqual(next_slot(unassigned, options, cells, self.graph), "D1")
+        self.assertEqual(remaining_legal("D1", options, cells, self.graph), 1)
+        self.assertEqual(remaining_legal("D2", options, cells, self.graph), 2)
+
+    def test_degree_breaks_an_mrv_tie(self):
+        """Equal remaining counts: pick the slot that still crosses more open slots."""
+
+        class Stub:
+            cells = {
+                "HUB": [(0, 0), (0, 1), (0, 2)],
+                "LEAF": [(2, 0), (2, 1), (2, 2)],
+            }
+
+            def neighbors(self, slot_id):
+                return {"HUB": ["A", "B", "C"], "LEAF": ["A"]}[slot_id]
+
+        options = {
+            "HUB": [("CAT", 0.0, 0.9), (WILDCARD, 0.0, 0.0)],
+            "LEAF": [("DOG", 0.0, 0.9), (WILDCARD, 0.0, 0.0)],
+        }
+        self.assertEqual(next_slot(["HUB", "LEAF"], options, {}, Stub()), "HUB")
+
+    def test_lcv_tries_the_less_blocking_value_first(self):
+        """Equal scores: CAT keeps CAB on D1; BAT kills it. Try CAT first."""
+        options = {
+            "A1": [("BAT", 0.8, 0.8), ("CAT", 0.8, 0.8), (WILDCARD, -3.0, 0.0)],
+            "D1": [("CAB", 0.7, 0.7), (WILDCARD, -3.0, 0.0)],
+        }
+        ordered = [answer for answer, _, _ in value_order("A1", options, {}, self.graph)]
+        self.assertEqual(ordered[0], "CAT")
+        self.assertLess(
+            eliminated_count("A1", "CAT", options, {}, self.graph),
+            eliminated_count("A1", "BAT", options, {}, self.graph),
+        )
+
+    def test_fits_cells_rejects_a_locked_mismatch(self):
+        self.assertTrue(fits_cells("A1", "CAT", {}, self.graph))
+        self.assertFalse(fits_cells("A1", "BAT", {(0, 0): "C"}, self.graph))
+
+    def test_nogood_skips_a_recorded_conflict(self):
+        cache = NogoodCache()
+        cache.record(frozenset({("A1", "ZZZ"), ("D1", "CAB")}))
+        self.assertTrue(
+            cache.hits({"A1": "ZZZ", "D1": "CAB", "A4": "ARE"})
+        )
+        self.assertFalse(cache.hits({"A1": "CAT", "D1": "CAB"}))
+        self.assertFalse(cache.hits({"A1": "ZZZ"}))
+
+    def test_search_still_allows_a_repeated_short_answer(self):
+        """Unique-word is a constructor rule, not a solver rule: this mini
+        has ARE across and ARE down, which is legal for a clue solver."""
+        domains = build_domains(self.graph, gold_candidates(self.puzzle))
+        result = search_solve(domains, self.graph, seed=0)
+        self.assertEqual(result.assignment["A4"], "ARE")
+        self.assertEqual(result.assignment["D2"], "ARE")
 
 
 class TestHelpers(unittest.TestCase):

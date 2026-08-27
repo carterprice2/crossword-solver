@@ -256,6 +256,17 @@ recorded as a conflict site instead — which then becomes the list of places
 worth another model call. This is the single most important implementation
 detail in the constraint layer.
 
+**CS50 search heuristics, adapted for scored LLM domains.** The fill is a
+weighted CSP, not "find any legal grid." Variable order is dynamic **MRV**
+(fewest candidates that still fit the current letters) with the **degree**
+heuristic as a tie-break. Values stay ordered by score; **least-constraining
+value** only breaks ties, because trying the 0.9 answer before the 0.2 one is
+what makes branch-and-bound prune. Contradictory partial assignments are
+cached as nogoods so a restart does not replay them. The CS50 unique-word
+rule is *not* used: real clues can independently produce the same short
+answer (the 3×3 fixture has ARE across and ARE down), and uniqueness is a
+constructor constraint, not a solver one.
+
 **A wildcard value — and the ablation says it does not pay off.** Any slot can
 be left blank at a fixed probability cost, the intent being that declining beats
 committing to a wrong answer that corrupts four crossing slots. Arm `a6`
