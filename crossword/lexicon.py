@@ -12,18 +12,29 @@ import os
 from functools import lru_cache
 
 SYSTEM_WORDS = "/usr/share/dict/words"
+# Ubuntu/Debian ship the list under these names; `wamerican` also
+# provides the /usr/share/dict/words symlink via update-alternatives.
+SYSTEM_WORD_PATHS = (
+    SYSTEM_WORDS,
+    "/usr/share/dict/american-english",
+    "/usr/share/dict/british-english",
+)
 VOWELS = frozenset("AEIOUY")
 
 
-def _load_system_words(path: str = SYSTEM_WORDS) -> set[str]:
+def _load_system_words(path: str | None = None) -> set[str]:
     words: set[str] = set()
-    if not os.path.isfile(path):
-        return words
-    with open(path, encoding="utf-8", errors="ignore") as fh:
-        for line in fh:
-            token = line.strip()
-            if token.isalpha():
-                words.add(token.upper())
+    candidates = (path,) if path is not None else SYSTEM_WORD_PATHS
+    for candidate in candidates:
+        if not candidate or not os.path.isfile(candidate):
+            continue
+        with open(candidate, encoding="utf-8", errors="ignore") as fh:
+            for line in fh:
+                token = line.strip()
+                if token.isalpha():
+                    words.add(token.upper())
+        if words:
+            return words
     return words
 
 

@@ -1,9 +1,19 @@
 import unittest
 
-from crossword.lexicon import is_valid_entry
+from crossword.lexicon import _load_system_words, is_valid_entry
 
 
 class TestIsValidEntry(unittest.TestCase):
+    def test_system_dictionary_is_available(self):
+        loaded = _load_system_words()
+        self.assertTrue(
+            loaded,
+            "no system word list found. On Debian/Ubuntu: apt install wamerican",
+        )
+
+    def test_missing_system_dictionary_is_empty(self):
+        self.assertEqual(_load_system_words("/nonexistent/words"), set())
+
     def test_real_words_pass(self):
         for word in ("LINE", "CAT", "OATEN", "GALA", "AROW"):
             self.assertTrue(is_valid_entry(word), word)

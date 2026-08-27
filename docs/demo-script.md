@@ -8,8 +8,7 @@ still bit-for-bit reproducible.
 ## Setup
 
 ```bash
-cd crossword-agent
-# ~100x30 terminal, large font. Check it fits before recording:
+# From the repo root. ~100x30 terminal, large font. Check it fits before recording:
 FORCE_COLOR=1 python3 -m crossword solve corpus/mini/mini-11-04-0.xd \
     --backend oracle --oracle-recall 0.6 --oracle-top1-error 0.5 --live
 ```

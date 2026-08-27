@@ -727,21 +727,3 @@ def _star_builder(puzzle, graph, star, patterns, rejected, current, likely, issu
         )
 
     return build
-
-
-def _star_builder(puzzle, graph, star, patterns, rejected, current, likely, issues=None):
-    def build(*, schema_in_prompt: bool = False):
-        return prompts.star_repair_messages(
-            puzzle,
-            graph,
-            list(star.slots),
-            star.hubs,
-            patterns,
-            rejected,
-            current,
-            likely=likely,
-            issues=issues,
-            schema_in_prompt=schema_in_prompt,
-        )
-
-    return build
