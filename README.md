@@ -21,13 +21,14 @@ No installation, no dependencies, no API key:
 ```bash
 git clone <this repo>
 cd crossword-solver
-make test     # 241 tests, offline
+make test     # 243 tests, offline
 make demo     # watch a solve, offline
 ```
 
 `make demo` runs the full agent loop against synthetic candidate lists in which
 40% of the correct answers are missing, so you can watch the repair rounds
-recover them.
+recover them. Membership checks use `/usr/share/dict/words` (present on macOS;
+on Debian/Ubuntu, `apt install wamerican`).
 
 To run it for real, get a key from
 [tokenfactory.nebius.com](https://tokenfactory.nebius.com/) (free signup) and
