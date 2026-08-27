@@ -219,6 +219,46 @@ class TestLiveView(unittest.TestCase):
         self.assertEqual(view.cells[(0, 0)], "C")
         self.assertIn("C A T", stream.getvalue())
 
+    def _finish(self, solution, *, color=False):
+        puzzle = parse_xd(SMALL)
+        stream = io.StringIO()
+        view = LiveView(puzzle, stream=stream, color=color, min_interval=0)
+        from crossword.agent.solver import SolveResult
+        from crossword.agent.trace import REPAIR, SolveEvent
+        from crossword.eval.metrics import score_solution
+
+        view.handle(
+            SolveEvent(
+                kind=REPAIR, round=2,
+                data={"slots": ["A12", "D4"], "model": "oracle"},
+            )
+        )
+        result = SolveResult(puzzle=puzzle, solution=solution)
+        scores = score_solution(puzzle, solution)
+        view.finish(result, scores)
+        return stream.getvalue()
+
+    def test_gold_check_replaces_the_repair_log(self):
+        puzzle = parse_xd(SMALL)
+        text = self._finish(puzzle.gold_solution())
+        after = text[text.rfind("gold check"):]
+        self.assertIn("gold check", after)
+        self.assertIn("WCR", after)
+        self.assertNotIn("repair", after.lower())
+        self.assertNotIn("round 2", after)
+
+    def test_gold_check_paints_correct_green_and_wrong_red(self):
+        puzzle = parse_xd(SMALL)
+        wrong = dict(puzzle.gold_solution())
+        wrong[(0, 0)] = "X"
+        from crossword.ui.live import GREEN, RED
+
+        text = self._finish(wrong, color=True)
+        after = text[text.rfind("gold check"):]
+        self.assertIn(RED, after)
+        self.assertIn(GREEN, after)
+        self.assertIn("PARTIAL", after)
+
     def test_a_broken_listener_does_not_kill_the_solve(self):
         from crossword.agent.trace import Tracer
 

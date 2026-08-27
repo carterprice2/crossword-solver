@@ -5,6 +5,11 @@ carries the state that matters while watching: dim = unknown, yellow =
 tentative, green = locked by two agreeing confident entries. The point of the
 view is that the repair round is *visible* -- you can watch slots that round 0
 left blank get filled once their crossings pin the pattern down.
+
+The final frame is a separate *gold check*: every letter is graded against the
+answer key (green = correct, red = wrong). The repair log and lock colours do
+not survive into that frame, so "the agent locked this" is not confused with
+"this is the right letter".
 """
 
 from __future__ import annotations
@@ -80,14 +85,15 @@ class LiveView:
         self.filled = 0
         self.icr = 1.0
         self.model = ""
+        self._gold_scores = None
 
     # -- painting ---------------------------------------------------------
 
     def _paint(self, text: str, color: str) -> str:
         return f"{color}{text}{RESET}" if self.color else text
 
-    def _grid_lines(self, reveal: bool = False) -> list[str]:
-        gold = self.puzzle.gold_solution() if (reveal and self.puzzle.has_gold()) else {}
+    def _grid_lines(self, *, scorecard: bool = False) -> list[str]:
+        gold = self.puzzle.gold_solution() if (scorecard and self.puzzle.has_gold()) else {}
         out = []
         for r in range(self.puzzle.grid.height):
             row = []
@@ -99,16 +105,24 @@ class LiveView:
                 letter = self.cells.get(cell)
                 if not letter:
                     row.append(self._paint(" .", DIM))
-                elif reveal and gold and letter.upper() != gold[cell].upper():
-                    row.append(self._paint(f" {letter[:1]}", RED))
+                    continue
+                glyph = f" {letter[:1]}"
+                if scorecard and gold:
+                    want = gold.get(cell, "")
+                    if letter.upper() == want.upper():
+                        row.append(self._paint(glyph, GREEN))
+                    else:
+                        row.append(self._paint(glyph, RED))
                 elif cell in self.locked:
-                    row.append(self._paint(f" {letter[:1]}", GREEN))
+                    row.append(self._paint(glyph, GREEN))
                 else:
-                    row.append(self._paint(f" {letter[:1]}", YELLOW))
+                    row.append(self._paint(glyph, YELLOW))
             out.append("".join(row))
         return out
 
-    def _panel_lines(self) -> list[str]:
+    def _panel_lines(self, *, scorecard: bool = False) -> list[str]:
+        if scorecard:
+            return self._scorecard_panel()
         elapsed = time.monotonic() - self.started
         total = len(self.puzzle.slots)
         panel = [
@@ -122,14 +136,37 @@ class LiveView:
         panel.extend(self.log[-8:])
         return panel
 
-    def render(self, *, reveal: bool = False, force: bool = False) -> None:
+    def _scorecard_panel(self) -> list[str]:
+        scores = self._gold_scores
+        elapsed = time.monotonic() - self.started
+        panel = [self._paint("gold check", BOLD) + "  vs the answer key"]
+        if scores is None:
+            panel.append("no answer key on this puzzle")
+            return panel
+        verdict = "SOLVED" if scores.exact else "PARTIAL"
+        color = GREEN if scores.exact else YELLOW
+        panel.append(self._paint(verdict, color))
+        panel.append(
+            f"WCR {scores.wcr:.3f}  LCR {scores.lcr:.3f}  ICR {scores.icr:.3f}"
+        )
+        wrong = scores.cells_filled - scores.cells_correct
+        blank = scores.cells_total - scores.cells_filled
+        panel.append(
+            f"{scores.cells_correct} correct  {wrong} wrong  {blank} blank"
+        )
+        panel.append(self._paint("green = correct", GREEN))
+        panel.append(self._paint("red = wrong", RED))
+        panel.append(f"{self.calls} calls  {elapsed:5.1f}s")
+        return panel
+
+    def render(self, *, scorecard: bool = False, force: bool = False) -> None:
         now = time.monotonic()
         if not force and now - self.last_draw < self.min_interval:
             return
         self.last_draw = now
 
-        grid = self._grid_lines(reveal=reveal)
-        panel = self._panel_lines()
+        grid = self._grid_lines(scorecard=scorecard)
+        panel = self._panel_lines(scorecard=scorecard)
         width = shutil.get_terminal_size((100, 30)).columns
         gutter = "   "
         body = []
@@ -138,9 +175,9 @@ class LiveView:
             right = panel[index] if index < len(panel) else ""
             body.append((left + gutter + right)[: width + 64].rstrip())
 
+        kind = "gold check" if scorecard else f"{self.puzzle.grid.height}x{self.puzzle.grid.width}"
         header = self._paint(
-            f"Reno Crossword Agent  ·  {self.puzzle.id}  ·  "
-            f"{self.puzzle.grid.height}x{self.puzzle.grid.width}",
+            f"Reno Crossword Agent  ·  {self.puzzle.id}  ·  {kind}",
             BOLD,
         )
         lines = [header, ""] + body
@@ -218,11 +255,15 @@ class LiveView:
         self.locked = set(cells)
 
     def finish(self, result, scores=None) -> None:
-        """Final frame: reveal wrong cells in red, then a one-line summary."""
-        self.locked = set(result.locked)
-        self._absorb(self.puzzle.grid.render(result.solution))
+        """Replace the working view with a gold-check scorecard.
+
+        Working-grid colours mean lock state. Scorecard colours mean correctness.
+        The repair log is dropped so the two are not on screen at the same time.
+        """
         self.cells.update({c: v for c, v in result.solution.items()})
-        self.render(reveal=True, force=True)
+        self._gold_scores = scores
+        self.log = []
+        self.render(scorecard=True, force=True)
         if scores is None:
             return
         verdict = (

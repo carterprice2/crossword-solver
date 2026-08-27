@@ -21,7 +21,7 @@ No installation, no dependencies, no API key:
 ```bash
 git clone <this repo>
 cd crossword-solver
-make test     # 243 tests, offline
+make test     # 249 tests, offline
 make demo     # watch a solve, offline
 ```
 
@@ -60,8 +60,9 @@ make verify-live-ablation    # a2 vs a3 on the four 7x7s, repair model
   handling. Alongside it: recording, replay, scripted and oracle clients, which
   is what lets the entire agent be tested with no network.
 - **`crossword/agent/`** — the loop. `candidates.py` batches clues and parses
-  responses, `constraints.py` propagates crossing letters, `search.py` picks the
-  best consistent grid, `solver.py` runs the rounds.
+  responses, `constraints.py` propagates crossing letters, `search.py` picks
+  the best consistent grid (dynamic MRV, degree, LCV, nogoods), `solver.py`
+  runs the rounds.
 - **`crossword/eval/`** — metrics, statistics, the arm matrix, and the report
   generator.
 - **`crossword/gen/`** — the puzzle generator that produces the committed
@@ -77,7 +78,7 @@ make verify-live-ablation    # a2 vs a3 on the four 7x7s, repair model
 round 0   ask the model for candidates for every clue, cold
           → drop candidates contradicting known cells
           → soft AC-3 across every intersection
-          → weighted search for the best consistent grid
+          → weighted search (MRV + degree + LCV, nogood cache)
           → lock cells where a confident across and a confident down agree
 
 round 1+  pick the slots still unresolved or in conflict; ask again, now

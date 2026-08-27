@@ -24,7 +24,7 @@ mechanism is on screen rather than merely described.
 | 0:00–0:08 | Terminal, type `make demo` | "A crossword isn't trivia — it's a constraint problem where the answers come from a language model." |
 | 0:08–0:20 | Round 0 sweeps the grid, cells turn yellow | "Round one asks the model for every clue cold. It batches clues that actually cross each other, so the model can check itself." |
 | 0:20–0:35 | **Repair lines appear; conflicts listed; cells turn green** | "Then the crossings vote. Where two confident answers agree, the letter locks — green. Where they conflict, the agent goes *back* to the model with the letters it now knows and the answers it already ruled out." |
-| 0:35–0:45 | Grid completes, `SOLVED WCR 1.000` | "Forty percent of the correct answers were missing from that first pass. The loop recovered them." |
+| 0:35–0:45 | Frame flips to **gold check**: every letter green, `SOLVED WCR 1.000` | "Forty percent of the correct answers were missing from that first pass. The loop recovered them. Green now means *correct*, not just locked." |
 | 0:45–0:60 | Cut to `results/synthetic-sweep.json` table or REPORT.md | "And that's the measurement: the worse the model, the more the loop is worth — plus two-tenths of a point of WCR at the low end." |
 
 ## The one number to say out loud
