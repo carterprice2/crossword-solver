@@ -5,19 +5,19 @@
     crossword report  results/run-.../
     crossword generate --size 9 --seed 3
     crossword models  ping
+    crossword serve
 """
 
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import os
+import subprocess
 import sys
 import time
 
 from . import __version__
-from .agent.solver import Solver, SolverConfig
 from .agent.trace import Tracer
 from .client import (
     DEFAULT_BASE_URL,
@@ -26,80 +26,56 @@ from .client import (
     KNOWN_MODELS,
     ModelError,
     NebiusClient,
-    OracleClient,
-    OracleConfig,
-    RecordingClient,
-    ReplayClient,
     load_env_file,
 )
-from .eval.harness import Harness, build_arms, solve_one_shot
-from .eval.metrics import prefill_cells, score_solution
+from .eval.harness import Harness, build_arms
 from .eval.report import write_summary
-from .model import Puzzle
+from .run import (
+    HERE,
+    RunError,
+    load_puzzles,
+    make_client,
+    prefill_for,
+    run_solve,
+    solver_config,
+    suite_paths,
+)
 from .ui.live import LiveView
 from .xd import load_xd
 
-HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CORPUS = os.path.join(HERE, "corpus")
 
-
-def _suite_paths(suite: str) -> list[str]:
-    if os.path.isdir(suite):
-        return sorted(glob.glob(os.path.join(suite, "*.xd")))
-    directory = os.path.join(CORPUS, suite)
-    if os.path.isdir(directory):
-        return sorted(glob.glob(os.path.join(directory, "*.xd")))
-    raise SystemExit(
-        f"no suite {suite!r}. Expected a directory, or one of: "
-        f"{', '.join(sorted(os.listdir(CORPUS))) if os.path.isdir(CORPUS) else '(none)'}"
-    )
-
-
-def _load_puzzles(paths: list[str], limit: int = 0) -> list[Puzzle]:
-    puzzles = [load_xd(p) for p in paths]
-    return puzzles[:limit] if limit else puzzles
-
-
-def _make_client(args, puzzle: Puzzle | None = None):
-    """Pick a client from --backend. Only 'nebius' touches the network."""
-    backend = args.backend
-    if backend == "replay":
-        if not args.replay:
-            raise SystemExit("--backend replay needs --replay PATH")
-        return ReplayClient(args.replay, strict=not args.replay_loose)
-    if backend == "oracle":
-        if puzzle is None or not puzzle.has_gold():
-            raise SystemExit("--backend oracle needs a puzzle with gold answers")
-        gold = {s.id: s.gold or "" for s in puzzle.slots}
-        return OracleClient(
-            gold,
-            OracleConfig(
-                recall=args.oracle_recall,
-                top1_error=args.oracle_top1_error,
-                conf_noise=0.2,
-                seed=args.seed,
-                pattern_aware=not getattr(args, "oracle_independent", False),
-            ),
+def _make_client(args, puzzle=None):
+    try:
+        return make_client(
+            puzzle,
+            backend=args.backend,
+            seed=args.seed,
+            base_url=args.base_url,
+            timeout=args.timeout,
+            replay=getattr(args, "replay", None),
+            replay_loose=getattr(args, "replay_loose", False),
+            oracle_recall=getattr(args, "oracle_recall", 0.8),
+            oracle_top1_error=getattr(args, "oracle_top1_error", 0.35),
+            oracle_independent=getattr(args, "oracle_independent", False),
+            record=getattr(args, "record", None),
         )
-    client = NebiusClient(base_url=args.base_url, timeout=args.timeout)
-    if getattr(args, "record", None):
-        return RecordingClient(client, args.record)
-    return client
+    except RunError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
-def _solver_config(args) -> SolverConfig:
-    arms = build_arms(args.model, args.repair_model)
-    arm = arms.get(args.arm)
-    if arm is None:
-        raise SystemExit(f"unknown arm {args.arm!r}; choose from {', '.join(arms)}")
-    config = arm.config
-    config.model = args.model
-    config.repair_model = args.repair_model
-    config.seed = args.seed
-    config.max_workers = args.workers
-    if args.rounds:
-        config.max_rounds = args.rounds
-    return config
+def _solver_config(args):
+    try:
+        arm, config = solver_config(
+            arm=args.arm,
+            model=args.model,
+            repair_model=args.repair_model,
+            seed=args.seed,
+            workers=args.workers,
+            rounds=getattr(args, "rounds", 0) or 0,
+        )
+    except RunError as exc:
+        raise SystemExit(str(exc)) from exc
+    return arm, config
 
 
 # -- commands --------------------------------------------------------------
@@ -108,10 +84,9 @@ def _solver_config(args) -> SolverConfig:
 def cmd_solve(args) -> int:
     puzzle = load_xd(args.puzzle)
     client = _make_client(args, puzzle)
-    config = _solver_config(args)
-    arm = build_arms(args.model, args.repair_model)[args.arm]
+    arm, config = _solver_config(args)
 
-    prefill = prefill_cells(puzzle, args.prefill, seed=args.seed) if args.prefill else {}
+    prefill = prefill_for(puzzle, args.prefill, args.seed)
     view = LiveView(puzzle) if args.live else None
     tracer = Tracer(args.trace, listeners=[view] if view else [])
 
@@ -125,16 +100,14 @@ def cmd_solve(args) -> int:
 
     context = view if view else _NullContext()
     with context:
-        if arm.one_shot:
-            result = solve_one_shot(client, puzzle, config, prefill=prefill)
-        else:
-            result = Solver(client, config, tracer=tracer).solve(puzzle, prefill=prefill)
-
-    scores = (
-        score_solution(puzzle, result.solution, assignment=result.assignment)
-        if puzzle.has_gold()
-        else None
-    )
+        result, scores = run_solve(
+            puzzle,
+            client=client,
+            config=config,
+            one_shot=arm.one_shot,
+            tracer=tracer,
+            prefill=prefill,
+        )
     if view:
         view.finish(result, scores)
     else:
@@ -161,8 +134,11 @@ def cmd_solve(args) -> int:
 
 
 def cmd_eval(args) -> int:
-    paths = _suite_paths(args.suite)
-    puzzles = _load_puzzles(paths, args.limit)
+    try:
+        paths = suite_paths(args.suite)
+    except RunError as exc:
+        raise SystemExit(str(exc)) from exc
+    puzzles = load_puzzles(paths, args.limit)
     if not puzzles:
         raise SystemExit(f"no puzzles in suite {args.suite!r}")
     arm_names = [a.strip() for a in args.arms.split(",") if a.strip()]
@@ -272,6 +248,41 @@ def cmd_models(args) -> int:
     return 0
 
 
+def cmd_serve(args) -> int:
+    try:
+        import uvicorn
+    except ImportError:
+        print(
+            "web extra missing. From the repo root:\n"
+            "  python3 -m venv .venv && .venv/bin/pip install -e '.[web]'",
+            file=sys.stderr,
+        )
+        return 2
+
+    web_dir = os.path.join(HERE, "web")
+    dist = os.path.join(web_dir, "dist")
+    if args.build:
+        built = subprocess.run(["npm", "run", "build"], cwd=web_dir)
+        if built.returncode:
+            return built.returncode
+    elif not os.path.isdir(dist):
+        print(
+            "no web/dist yet — serving the API only.\n"
+            "  python3 -m crossword serve --build\n"
+            "  or: cd web && npm run dev   (proxies /api to this server)",
+            file=sys.stderr,
+        )
+
+    print(f"Crossword Agent  http://{args.host}:{args.port}", file=sys.stderr)
+    uvicorn.run(
+        "crossword.api.app:app",
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+    )
+    return 0
+
+
 class _NullContext:
     def __enter__(self):
         return self
@@ -362,6 +373,13 @@ def build_parser() -> argparse.ArgumentParser:
     models.add_argument("--base-url", default=DEFAULT_BASE_URL)
     models.add_argument("--timeout", type=float, default=30.0)
     models.set_defaults(func=cmd_models)
+
+    serve = sub.add_parser("serve", help="open the web UI")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--build", action="store_true", help="npm run build, then serve web/dist")
+    serve.add_argument("--reload", action="store_true", help="reload the API on Python changes")
+    serve.set_defaults(func=cmd_serve)
 
     return parser
 

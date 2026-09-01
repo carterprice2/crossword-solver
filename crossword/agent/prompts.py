@@ -27,14 +27,16 @@ plausible answer of the wrong length is useless because it breaks every \
 crossing entry.
 - When a pattern is given, the answer must match it. "?" means unknown; any \
 other character is a letter already fixed by a crossing answer.
-- Give up to 5 candidates per clue, best first. Reason from the clue and the \
+- Give up to 8 candidates per clue, best first. Reason from the clue and the \
 length; you are not given a word list.
 - confidence is your honest probability that the candidate is correct, from \
 0 to 1. Do not inflate it. A well-calibrated 0.4 is far more useful to the \
 solver than a confident guess, because low-confidence answers are checked \
 against crossings before being accepted.
-- If you genuinely do not know, return fewer candidates rather than padding \
-the list with filler.
+- If you genuinely do not know, still return at least 3 low confidence candidates that fit so that we can try them. 
+- Remember that these answers can be abbreviations, proper nouns, wordplay, riddles, crosswordese, etc. so always fit the length. 
+
+
 
 Respond with JSON only, in this shape:
 {"items": [{"id": "A1", "candidates": [{"answer": "OREO", "confidence": 0.82, \
@@ -46,7 +48,7 @@ kind is one of: definition, wordplay, fitb, abbrev, proper, crosswordese.
 SCHEMA_HINT = """\
 
 Return a JSON object with an "items" array. Each element has "id" (the slot id \
-exactly as given) and "candidates" (an array of at most 5 objects, each with \
+exactly as given) and "candidates" (an array of at most 8 objects, each with \
 "answer", "confidence", and optionally "kind").
 """
 
@@ -218,7 +220,7 @@ def star_repair_messages(
         "These entries share cells. A fill is only legal if every pair agrees "
         "on the shared letter AND every answer is a real word, abbreviation, "
         "or name -- not a leftover letter scrap.",
-        "The current candidate lists do not mesh. Propose up to 5 NEW "
+        "The current candidate lists do not mesh. Propose up to 8 NEW "
         "candidates per slot that can form a consistent local fill. "
         "Prefer an answer that agrees with a crossing candidate already listed.",
         "If you cannot satisfy a slot, return an empty candidate list for it "

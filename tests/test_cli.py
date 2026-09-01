@@ -48,6 +48,12 @@ class TestParser(unittest.TestCase):
         self.assertEqual(args.backend, "nebius")
         self.assertFalse(args.live)
 
+    def test_serve_defaults(self):
+        args = build_parser().parse_args(["serve"])
+        self.assertEqual(args.port, 8000)
+        self.assertEqual(args.host, "127.0.0.1")
+        self.assertFalse(args.build)
+
     def test_eval_arms_parse(self):
         args = build_parser().parse_args(["eval", "--arms", "a0,a3"])
         self.assertEqual(args.arms, "a0,a3")

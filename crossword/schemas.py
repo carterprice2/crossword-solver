@@ -21,6 +21,10 @@ from dataclasses import dataclass
 
 from .normalize import CLUE_TYPES, normalize_answer
 
+#: Cap on candidates per slot. The search benefits from a longer list;
+#: the schema must allow what the prompt asks for.
+MAX_CANDIDATES = 8
+
 #: Rungs of the degradation ladder, strongest first.
 STRICT = "strict_schema"
 LOOSE = "loose_schema"
@@ -57,7 +61,7 @@ def candidates_schema(*, strict: bool = True, constrained: bool = True) -> dict:
     }
     candidate_list: dict = {"type": "array", "items": candidate}
     if constrained:
-        candidate_list["maxItems"] = 5
+        candidate_list["maxItems"] = MAX_CANDIDATES
     schema = {
         "type": "object",
         "additionalProperties": False,

@@ -23,6 +23,7 @@ from crossword.agent.search import (
     value_order,
 )
 from crossword.agent.solver import Solver, SolverConfig
+from crossword.agent.trace import CANDIDATES, Tracer
 from crossword.client import OracleClient, OracleConfig
 from crossword.eval.metrics import score_solution
 from crossword.schemas import Candidate
@@ -368,6 +369,25 @@ class TestSolverEndToEnd(unittest.TestCase):
         client = OracleClient(gold, OracleConfig(seed=3, **oracle))
         config = SolverConfig(model="oracle", max_workers=1)
         return Solver(client, config).solve(puzzle)
+
+    def test_emits_per_slot_candidates(self):
+        puzzle = mini()
+        gold = {s.id: s.gold for s in puzzle.slots}
+        tracer = Tracer()
+        client = OracleClient(
+            gold, OracleConfig(recall=1.0, top1_error=0.0, conf_noise=0.0, seed=3)
+        )
+        config = SolverConfig(model="oracle", max_workers=1)
+        Solver(client, config, tracer=tracer).solve(puzzle)
+        events = tracer.of_kind(CANDIDATES)
+        self.assertTrue(events)
+        slots = events[0].data["slots"]
+        self.assertTrue(slots)
+        first = slots[0]
+        self.assertIn("id", first)
+        self.assertIn("pattern", first)
+        self.assertTrue(first["candidates"])
+        self.assertIn("answer", first["candidates"][0])
 
     def test_perfect_candidates_solve_exactly(self):
         puzzle = mini()

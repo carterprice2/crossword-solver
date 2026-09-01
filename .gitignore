@@ -13,6 +13,7 @@ results/live-*.jsonl
 
 __pycache__/
 *.pyc
+*.egg-info/
 .venv/
 .env
 .remember/
