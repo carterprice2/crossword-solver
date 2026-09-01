@@ -21,7 +21,7 @@ No installation, no dependencies, no API key:
 ```bash
 git clone <this repo>
 cd crossword-solver
-make test     # 249 tests, offline
+make test     # 271 tests, offline (API tests skip without FastAPI)
 make demo     # watch a solve, offline
 ```
 
@@ -41,6 +41,26 @@ make models                                  # check the key, list models
 python3 -m crossword solve corpus/mini/mini-09-00-0.xd --live
 make eval                                    # the ablation matrix
 ```
+
+### Web UI
+
+Pick a mini or NYT puzzle, watch the grid fill, and see gold-check scores.
+Check **Debug candidates** to inspect per-slot LLM lists against gold (HIT vs
+MISS). After a solve the answer-key grid sits beside the agent's fill.
+The agent itself is unchanged; the page is another listener on the same event
+stream as `--live`.
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -e '.[web]'
+cd web && npm install && cd ..
+make serve PY=.venv/bin/python     # builds the UI, then http://127.0.0.1:8000
+```
+
+Oracle mode is the default when `NEBIUS_API_KEY` is unset, so the first visit
+works offline. For live solves, put the key in `.env` and choose Nebius in the
+UI. Dev loop: `make serve-dev PY=.venv/bin/python` in one terminal and
+`cd web && npm run dev` in another (Vite on :5173 proxies `/api` to :8000).
 
 Live verification is staged so a cheap check happens before a token-heavy one:
 
@@ -210,7 +230,7 @@ python3 -m crossword eval --suite mini --arms a0,a1,a2,a3 --backend oracle  # fr
 
 ### The corpus
 
-**Generated (committed, 12 puzzles).** Built by `crossword/gen/` from a word
+**Generated (committed, 7 unique puzzles).** Built by `crossword/gen/` from a word
 bank derived by intersecting [dwyl/english-words](https://github.com/dwyl/english-words)
 (public domain) with [Webster's 1913](https://github.com/matthewreagan/WebstersEnglishDictionary)
 (public domain, via Project Gutenberg). Commonness is estimated from the
@@ -251,7 +271,8 @@ The trade-off is real: we reimplement retries and lose streaming (which
 structured output does not benefit from anyway). Nebius documents the
 `openai` SDK with `base_url="https://api.tokenfactory.nebius.com/v1/"`, and
 `pyproject.toml` carries it as an optional `[sdk]` extra for anyone who prefers
-it — the `ModelClient` protocol is the seam.
+it — the `ModelClient` protocol is the seam. The web UI is the same idea: an
+optional `[web]` extra (`fastapi`, `uvicorn`) so `make test` stays zero-install.
 
 ## Commands
 
@@ -262,6 +283,7 @@ python3 -m crossword eval --suite nyt --arms a3   # after scripts/write_nyt_2021
 python3 -m crossword report results/run-.../
 python3 -m crossword generate --size 9 --seed 3
 python3 -m crossword models ping
+python3 -m crossword serve [--build]          # web UI (needs pip install -e '.[web]')
 ```
 
 Useful flags: `--backend oracle` runs everything offline against synthetic
@@ -282,10 +304,13 @@ crossword/
   eval/            metrics, stats, harness, report
   gen/             bank, grid templates, filler
   ui/live.py       the animated terminal view
+  run.py           shared solve wiring for the CLI and the web API
+  api/             FastAPI job server (optional extra)
+web/               Vite + React UI
 corpus/            generated puzzles, grid templates, word bank
 scripts/           build_bank.py, make_corpus.py, oracle_sweep.py, fetch_xd.py,
                    write_nyt_2021_05_28.py
-tests/             stdlib unittest, no network
+tests/             stdlib unittest, no network (API tests skip without FastAPI)
 ```
 
 ## Known limitations

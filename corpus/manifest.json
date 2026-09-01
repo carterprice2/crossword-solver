@@ -18,23 +18,6 @@
       "fill_nodes": 50
     },
     {
-      "id": "mini-07-00-1",
-      "path": "mini/mini-07-00-1.xd",
-      "size": 7,
-      "template": "7x7-00",
-      "seed": 1,
-      "slots": 16,
-      "block_density": 0.3469,
-      "max_slot_length": 5,
-      "clue_types": {
-        "definition": 9,
-        "proper": 7
-      },
-      "provenance": "generated",
-      "fill_seconds": 0.03,
-      "fill_nodes": 57
-    },
-    {
       "id": "mini-07-01-0",
       "path": "mini/mini-07-01-0.xd",
       "size": 7,
@@ -50,23 +33,6 @@
       "provenance": "generated",
       "fill_seconds": 0.023,
       "fill_nodes": 20
-    },
-    {
-      "id": "mini-07-01-1",
-      "path": "mini/mini-07-01-1.xd",
-      "size": 7,
-      "template": "7x7-01",
-      "seed": 1,
-      "slots": 16,
-      "block_density": 0.3469,
-      "max_slot_length": 5,
-      "clue_types": {
-        "definition": 12,
-        "proper": 4
-      },
-      "provenance": "generated",
-      "fill_seconds": 0.016,
-      "fill_nodes": 24
     },
     {
       "id": "mini-09-00-0",
@@ -87,24 +53,6 @@
       "fill_nodes": 7142
     },
     {
-      "id": "mini-09-00-1",
-      "path": "mini/mini-09-00-1.xd",
-      "size": 9,
-      "template": "9x9-00",
-      "seed": 1,
-      "slots": 32,
-      "block_density": 0.1605,
-      "max_slot_length": 6,
-      "clue_types": {
-        "crosswordese": 1,
-        "definition": 24,
-        "proper": 7
-      },
-      "provenance": "generated",
-      "fill_seconds": 4.493,
-      "fill_nodes": 7207
-    },
-    {
       "id": "mini-09-01-0",
       "path": "mini/mini-09-01-0.xd",
       "size": 9,
@@ -123,24 +71,6 @@
       "fill_nodes": 4273
     },
     {
-      "id": "mini-09-01-1",
-      "path": "mini/mini-09-01-1.xd",
-      "size": 9,
-      "template": "9x9-01",
-      "seed": 1,
-      "slots": 32,
-      "block_density": 0.2099,
-      "max_slot_length": 6,
-      "clue_types": {
-        "crosswordese": 1,
-        "definition": 20,
-        "proper": 11
-      },
-      "provenance": "generated",
-      "fill_seconds": 2.308,
-      "fill_nodes": 4284
-    },
-    {
       "id": "mini-11-04-0",
       "path": "mini/mini-11-04-0.xd",
       "size": 11,
@@ -156,23 +86,6 @@
       "provenance": "generated",
       "fill_seconds": 6.416,
       "fill_nodes": 1156
-    },
-    {
-      "id": "mini-11-04-1",
-      "path": "mini/mini-11-04-1.xd",
-      "size": 11,
-      "template": "11x11-04",
-      "seed": 1,
-      "slots": 42,
-      "block_density": 0.2314,
-      "max_slot_length": 6,
-      "clue_types": {
-        "definition": 31,
-        "proper": 11
-      },
-      "provenance": "generated",
-      "fill_seconds": 1.272,
-      "fill_nodes": 1122
     },
     {
       "id": "mini-11-06-0",

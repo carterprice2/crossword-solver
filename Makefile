@@ -9,7 +9,8 @@ MODEL ?= Qwen/Qwen3-30B-A3B-Instruct-2507
 REPAIR_MODEL ?= Qwen/Qwen3-235B-A22B-Instruct-2507
 
 .PHONY: help test demo solve eval report sweep sweep-pattern corpus bank nyt models clean \
-	verify-offline verify-live-ping verify-live-smoke verify-live-pair verify-live-ablation
+	verify-offline verify-live-ping verify-live-smoke verify-live-pair verify-live-ablation \
+	serve serve-dev web-build
 
 help:
 	@echo "make test     run the test suite          (no network, no install)"
@@ -22,6 +23,8 @@ help:
 	@echo "make bank     rebuild the word/clue bank from its public-domain sources"
 	@echo "make nyt      write the local NYT Friday fixture (corpus/nyt/)"
 	@echo "make models   check NEBIUS_API_KEY and list reachable models"
+	@echo "make serve    open the web UI               (needs pip install -e '.[web]')"
+	@echo "make serve-dev  API only; run Vite separately"
 	@echo "make verify-offline        tests (no network)"
 	@echo "make verify-live-ping      key + reachable models"
 	@echo "make verify-live-smoke     one 7x7 live solve, recorded (cheap model)"
@@ -70,6 +73,15 @@ nyt:
 
 models:
 	$(PY) -m crossword models ping
+
+serve:
+	$(PY) -m crossword serve --build --host 127.0.0.1 --port 8000
+
+serve-dev:
+	$(PY) -m crossword serve --host 127.0.0.1 --port 8000
+
+web-build:
+	cd web && npm run build
 
 # Staged verification. Offline is free. Live stages spend tokens; run in order.
 verify-offline:

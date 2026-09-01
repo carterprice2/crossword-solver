@@ -98,7 +98,17 @@ def main() -> int:
             template_name = f"{size}x{size}-{index:02d}"
             with open(os.path.join(grid_dir, f"{template_name}.txt"), "w") as fh:
                 fh.write(dump_template(grid))
+            seen_fills: set[tuple] = set()
             for seed, (puzzle, stats) in zip(seeds, results):
+                fill_key = tuple(sorted((s.id, s.gold or "") for s in puzzle.slots))
+                if fill_key in seen_fills:
+                    print(
+                        f"  skip mini-{size:02d}-{index:02d}-{seed} "
+                        f"(same fill as an earlier seed)",
+                        file=sys.stderr,
+                    )
+                    continue
+                seen_fills.add(fill_key)
                 if kept >= want:
                     break
                 puzzle_id = f"mini-{size:02d}-{index:02d}-{seed}"

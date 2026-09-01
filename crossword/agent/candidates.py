@@ -29,7 +29,7 @@ from ..schemas import (
     response_format_for,
 )
 from .constraints import SlotGraph
-from .trace import BATCH_DONE, Tracer
+from .trace import BATCH_DONE, CANDIDATES, Tracer
 
 DEFAULT_BATCH_SIZE = 14
 REPAIR_BATCH_SIZE = 8
@@ -164,6 +164,27 @@ class CandidateGenerator:
             completion.text, expected=expected, patterns=patterns
         )
         if self.tracer:
+            by_slot: dict[str, list[dict]] = {sid: [] for sid in slot_ids}
+            for candidate in candidates:
+                by_slot.setdefault(candidate.slot_id, []).append(
+                    {
+                        "answer": candidate.answer,
+                        "confidence": round(candidate.confidence, 3),
+                    }
+                )
+            self.tracer.emit(
+                CANDIDATES,
+                f"{len(candidates)} candidates across {len(slot_ids)} slots",
+                round=round_index,
+                slots=[
+                    {
+                        "id": sid,
+                        "pattern": patterns.get(sid, ""),
+                        "candidates": by_slot.get(sid, []),
+                    }
+                    for sid in slot_ids
+                ],
+            )
             self.tracer.emit(
                 BATCH_DONE,
                 f"{len(slot_ids)} clues -> {len(candidates)} candidates",

@@ -213,7 +213,7 @@ class TestSchemaLadder(unittest.TestCase):
         self.assertTrue(schema["json_schema"]["strict"])
         body = schema["json_schema"]["schema"]
         answer = body["properties"]["items"]["items"]["properties"]["candidates"]
-        self.assertEqual(answer["maxItems"], 5)
+        self.assertEqual(answer["maxItems"], 8)
         self.assertIn("pattern", answer["items"]["properties"]["answer"])
 
     def test_ladder_weakens_monotonically(self):
