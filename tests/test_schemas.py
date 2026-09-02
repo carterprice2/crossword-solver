@@ -9,8 +9,10 @@ from crossword.schemas import (
     Candidate,
     candidates_schema,
     extract_json,
+    grid_schema,
     merge_candidates,
     parse_candidates,
+    parse_grid_rows,
     response_format_for,
     strip_reasoning,
 )
@@ -226,6 +228,24 @@ class TestSchemaLadder(unittest.TestCase):
         for rung in LADDER:
             response_format_for(rung)  # must not raise
         self.assertEqual(LADDER[0], STRICT)
+
+    def test_grid_schema_shape(self):
+        payload = grid_schema(strict=True, constrained=True)
+        body = payload["json_schema"]["schema"]
+        self.assertEqual(body["properties"]["rows"]["type"], "array")
+        self.assertEqual(body["properties"]["rows"]["maxItems"], 15)
+
+    def test_parse_grid_rows(self):
+        text = json.dumps({"rows": ["#.#", ".#.", "#.#"]})
+        self.assertEqual(parse_grid_rows(text), ["#.#", ".#.", "#.#"])
+
+    def test_parse_grid_rows_survives_fence(self):
+        text = '```json\n{"rows": ["..", ".."]}\n```'
+        self.assertEqual(parse_grid_rows(text), ["..", ".."])
+
+    def test_grid_ladder_uses_grid_schema(self):
+        fmt = response_format_for(STRICT, schema_fn=grid_schema)
+        self.assertEqual(fmt["json_schema"]["name"], "crossword_grid")
 
 
 if __name__ == "__main__":

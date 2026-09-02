@@ -33,12 +33,9 @@ body {
 body {
   color: var(--ink);
   font-family: var(--body);
-  background-color: var(--paper);
-  background-image:
-    linear-gradient(var(--rule) 1px, transparent 1px),
-    linear-gradient(90deg, var(--rule) 1px, transparent 1px);
-  background-size: 24px 24px;
-  background-position: -1px -1px;
+  background-color: #cfd8e3;
+  background-image: linear-gradient(165deg, #e4ebf2 0%, #c5d2e0 100%);
+  background-attachment: fixed;
 }
 
 #root {
@@ -559,6 +556,101 @@ select:focus-visible,
   font-weight: 700;
 }
 
+.ingest {
+  background: var(--sheet);
+  border: 1px solid var(--rule-hard);
+  padding: 16px 18px 18px;
+  margin: 0 0 16px;
+}
+
+.ingest-copy h2 {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ingest-copy p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 52ch;
+}
+
+.ingest-form {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.7fr) 1fr 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.ingest-form .grow {
+  min-width: 0;
+}
+
+.field textarea {
+  background: var(--white);
+  border: 1px solid var(--rule-hard);
+  padding: 8px;
+  min-height: 88px;
+  resize: vertical;
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+}
+
+.drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 1px dashed var(--rule-hard);
+  background: var(--white);
+  min-height: 88px;
+  padding: 8px;
+  cursor: pointer;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.ingest-form .start {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.ingest-edit {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.ingest-edit p {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.edit-board {
+  max-width: 280px;
+  margin-bottom: 12px;
+}
+
+.edit-board .square {
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+}
+
 .offer small {
   color: var(--muted);
   font-size: 10px;
@@ -589,6 +681,10 @@ select:focus-visible,
   }
 
   .glossary {
+    grid-template-columns: 1fr;
+  }
+
+  .ingest-form {
     grid-template-columns: 1fr;
   }
 }

@@ -1,0 +1,17 @@
+node_modules
+web/node_modules
+web/dist
+.venv
+.env
+crossword.env
+__pycache__
+*.pyc
+*.egg-info
+.git
+corpus/nyt
+corpus/xd
+corpus/puz
+results/run-*
+docs
+tests
+Take Home Assigment - FDE.pdf

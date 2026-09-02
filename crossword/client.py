@@ -87,6 +87,7 @@ KNOWN_MODELS = (
 
 DEFAULT_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507"
 DEFAULT_REASONING_MODEL = "Qwen/Qwen3-235B-A22B-Instruct-2507"
+DEFAULT_VISION_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"
 
 
 class ModelError(RuntimeError):

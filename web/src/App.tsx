@@ -3,6 +3,7 @@ import { fetchDefaults, fetchPuzzle, fetchPuzzles, fetchSuites, startSolve } fro
 import { Board } from './components/Board'
 import { CandidateDebug } from './components/CandidateDebug'
 import { ClueList } from './components/ClueList'
+import { Ingest } from './components/Ingest'
 import { Picker } from './components/Picker'
 import { Rail } from './components/Rail'
 import { Scorecard } from './components/Scorecard'
@@ -48,6 +49,13 @@ function marksToFills(
   return next
 }
 
+const YOURS: Suite = {
+  id: 'yours',
+  label: 'Your puzzle',
+  count: 0,
+  description: 'Screenshot plus Across and Down clues.',
+}
+
 export function App() {
   const [suites, setSuites] = useState<Suite[]>([])
   const [defaults, setDefaults] = useState<Defaults | null>(null)
@@ -91,6 +99,10 @@ export function App() {
   }, [])
 
   useEffect(() => {
+    if (suite === 'yours') {
+      setPuzzles([])
+      return
+    }
     fetchPuzzles(suite)
       .then((list) => {
         setPuzzles(list)
@@ -101,7 +113,7 @@ export function App() {
   }, [suite])
 
   useEffect(() => {
-    if (!selected) return
+    if (!selected || suite === 'yours') return
     const gen = solveGen.current
     let cancelled = false
     setFills({})
@@ -131,7 +143,7 @@ export function App() {
     return () => {
       cancelled = true
     }
-  }, [selected])
+  }, [selected, suite])
 
   const hotCells = useMemo(() => {
     const cells = new Set<string>()
@@ -145,11 +157,86 @@ export function App() {
 
   const nytLive = suite === 'nyt' && backend === 'nebius'
   const currentSuite = suites.find((item) => item.id === suite)
+  const pickerSuites = [YOURS, ...suites]
+  const noGold = Boolean(puzzle && !puzzle.has_gold)
 
-  async function onSolve() {
-    if (!selected || busy) return
-    solveGen.current += 1
-    setBusy(true)
+  function listenToJob(jobId: string, slotCount: number) {
+    const source = new EventSource(`/api/solves/${jobId}/events`)
+    let done = false
+    source.onmessage = (message) => {
+      let event: SolveEvent
+      try {
+        event = JSON.parse(message.data) as SolveEvent
+      } catch {
+        return
+      }
+      setLog((prev) => [...prev, event])
+      setRound(event.round)
+      if (event.kind === 'search') {
+        const grid = event.data.grid
+        if (Array.isArray(grid)) {
+          setFills((prev) => absorbGrid(grid as string[], prev))
+        }
+        if (typeof event.data.filled === 'number') {
+          setFilled(`${event.data.filled}/${slotCount}`)
+        }
+        if (typeof event.data.icr === 'number') setIcr(event.data.icr)
+      }
+      if (event.kind === 'batch_done') {
+        setCalls((n) => n + 1)
+        const tok = event.data.tokens
+        if (typeof tok === 'number') setTokens((n) => n + tok)
+      }
+      if (event.kind === 'candidates') {
+        const slots = event.data?.slots
+        if (Array.isArray(slots)) {
+          setCandidateBatches((prev) => [
+            ...prev,
+            { round: event.round, slots: slots as CandidateSlot[] },
+          ])
+        }
+      }
+      if (event.kind === 'repair') {
+        const slots = event.data.slots
+        if (Array.isArray(slots)) setHotSlots(slots as string[])
+      }
+      if (event.kind === 'finished') {
+        done = true
+        source.close()
+        setBusy(false)
+        setScorecard(true)
+        if (event.scores) setScores(event.scores)
+        if (event.solve?.seconds) setSeconds(event.solve.seconds)
+        if (event.solve?.calls) setCalls(event.solve.calls)
+        const prompt = event.solve?.prompt_tokens ?? 0
+        const completion = event.solve?.completion_tokens ?? 0
+        if (prompt || completion) setTokens(prompt + completion)
+        if (event.assignment) setAssignment(event.assignment)
+        if (event.cells) setFills(marksToFills(event.cells))
+        if (event.gold?.length) setGoldFills(marksToFills(event.gold, true))
+        else setGoldFills(null)
+        if (event.candidate_batches?.length) setCandidateBatches(event.candidate_batches)
+      }
+      if (event.kind === 'error') {
+        done = true
+        source.close()
+        setBusy(false)
+        setError(event.message || 'Solve failed')
+      }
+    }
+    source.onerror = () => {
+      if (done) {
+        source.close()
+        return
+      }
+      if (source.readyState === EventSource.CONNECTING) return
+      source.close()
+      setBusy(false)
+      setError((prev) => prev ?? 'Lost the solve stream')
+    }
+  }
+
+  function resetSolve() {
     setError(null)
     setScores(null)
     setScorecard(false)
@@ -158,91 +245,56 @@ export function App() {
     setLog([])
     setCandidateBatches([])
     setAssignment({})
+    setHotSlots([])
     setShowDebug(debug)
+    setCalls(0)
+    setTokens(0)
+    setIcr(1)
+  }
+
+  async function onSolve() {
+    if (!selected || busy) return
+    const liveBackend = noGold ? 'nebius' : backend
+    solveGen.current += 1
+    setBusy(true)
+    resetSolve()
     try {
       const job = await startSolve({
         puzzle_id: selected,
-        backend,
+        backend: liveBackend,
         arm,
         debug,
-        model: backend === 'nebius' ? model : undefined,
+        model: liveBackend === 'nebius' ? model : undefined,
       })
-      const source = new EventSource(`/api/solves/${job.job_id}/events`)
-      let done = false
-      source.onmessage = (message) => {
-        let event: SolveEvent
-        try {
-          event = JSON.parse(message.data) as SolveEvent
-        } catch {
-          return
-        }
-        setLog((prev) => [...prev, event])
-        setRound(event.round)
-        if (event.kind === 'search') {
-          const grid = event.data.grid
-          if (Array.isArray(grid)) {
-            setFills((prev) => absorbGrid(grid as string[], prev))
-          }
-          if (typeof event.data.filled === 'number' && puzzle) {
-            setFilled(`${event.data.filled}/${puzzle.slots}`)
-          }
-          if (typeof event.data.icr === 'number') setIcr(event.data.icr)
-        }
-        if (event.kind === 'batch_done') {
-          setCalls((n) => n + 1)
-          const tok = event.data.tokens
-          if (typeof tok === 'number') setTokens((n) => n + tok)
-        }
-        if (event.kind === 'candidates') {
-          const slots = event.data?.slots
-          if (Array.isArray(slots)) {
-            setCandidateBatches((prev) => [
-              ...prev,
-              { round: event.round, slots: slots as CandidateSlot[] },
-            ])
-          }
-        }
-        if (event.kind === 'repair') {
-          const slots = event.data.slots
-          if (Array.isArray(slots)) setHotSlots(slots as string[])
-        }
-        if (event.kind === 'finished') {
-          done = true
-          source.close()
-          setBusy(false)
-          setScorecard(true)
-          if (event.scores) setScores(event.scores)
-          if (event.solve?.seconds) setSeconds(event.solve.seconds)
-          if (event.solve?.calls) setCalls(event.solve.calls)
-          const prompt = event.solve?.prompt_tokens ?? 0
-          const completion = event.solve?.completion_tokens ?? 0
-          if (prompt || completion) setTokens(prompt + completion)
-          if (event.assignment) setAssignment(event.assignment)
-          if (event.cells) setFills(marksToFills(event.cells))
-          if (event.gold) setGoldFills(marksToFills(event.gold, true))
-          if (event.candidate_batches?.length) setCandidateBatches(event.candidate_batches)
-        }
-        if (event.kind === 'error') {
-          done = true
-          source.close()
-          setBusy(false)
-          setError(event.message || 'Solve failed')
-        }
-      }
-      source.onerror = () => {
-        if (done) {
-          source.close()
-          return
-        }
-        if (source.readyState === EventSource.CONNECTING) return
-        source.close()
-        setBusy(false)
-        setError((prev) => prev ?? 'Lost the solve stream')
-      }
+      listenToJob(job.job_id, puzzle?.slots ?? 0)
     } catch (err) {
       setBusy(false)
       setError(err instanceof Error ? err.message : String(err))
     }
+  }
+
+  function onPickSuite(id: string) {
+    setSuite(id)
+    if (id === 'yours') {
+      setSelected(null)
+      setPuzzle(null)
+      setFills({})
+      setGoldFills(null)
+      setLog([])
+      setScores(null)
+    }
+  }
+
+  function onIngestReady(detail: PuzzleDetail, jobId: string) {
+    solveGen.current += 1
+    setBackend('nebius')
+    setPuzzle(detail)
+    setSelected(detail.id)
+    setFilled(`0/${detail.slots}`)
+    setBusy(true)
+    resetSolve()
+    setShowDebug(debug)
+    listenToJob(jobId, detail.slots)
   }
 
   return (
@@ -255,8 +307,14 @@ export function App() {
         <div className="controls">
           <label className="field">
             <span>Backend</span>
-            <select value={backend} onChange={(e) => setBackend(e.target.value)} disabled={busy}>
-              <option value="oracle">Oracle (offline)</option>
+            <select
+              value={suite === 'yours' || noGold ? 'nebius' : backend}
+              onChange={(e) => setBackend(e.target.value)}
+              disabled={busy || suite === 'yours' || noGold}
+            >
+              <option value="oracle" disabled={suite === 'yours' || noGold}>
+                Oracle (offline)
+              </option>
               <option value="nebius" disabled={defaults ? !defaults.has_key : false}>
                 Nebius (live)
               </option>
@@ -272,7 +330,7 @@ export function App() {
               ))}
             </select>
           </label>
-          {backend === 'nebius' ? (
+          {(backend === 'nebius' || suite === 'yours' || noGold) ? (
             <label className="field wide">
               <span>Model</span>
               <select
@@ -315,20 +373,36 @@ export function App() {
       ) : null}
 
       <Picker
-        suites={suites}
+        suites={pickerSuites}
         suite={suite}
         puzzles={puzzles}
         selected={selected}
-        onSuite={setSuite}
+        onSuite={onPickSuite}
         onSelect={setSelected}
       />
+
+      {suite === 'yours' ? (
+        <Ingest
+          busy={busy}
+          arm={arm}
+          model={model}
+          debug={debug}
+          onError={setError}
+          onReady={onIngestReady}
+        />
+      ) : null}
 
       {error ? <p className="error">{error}</p> : null}
 
       {puzzle ? (
         <>
           {showDebug ? (
-            <CandidateDebug puzzle={puzzle} batches={candidateBatches} assignment={assignment} />
+            <CandidateDebug
+              puzzle={puzzle}
+              batches={candidateBatches}
+              assignment={assignment}
+              showGold={puzzle.has_gold}
+            />
           ) : null}
           <div className="stage">
             <div className={goldFills ? 'boards compare' : 'boards'}>
@@ -355,7 +429,7 @@ export function App() {
           </div>
           {scores ? <Scorecard scores={scores} seconds={seconds} tokens={tokens} /> : null}
         </>
-      ) : (
+      ) : suite === 'yours' ? null : (
         <p className="empty">Pick a puzzle to load the grid.</p>
       )}
     </div>

@@ -25,6 +25,7 @@ from ..schemas import (
     FREE_TEXT,
     LADDER,
     Candidate,
+    candidates_schema,
     parse_candidates,
     response_format_for,
 )
@@ -84,6 +85,7 @@ def request_with_ladder(
     max_tokens: int,
     seed: int | None,
     start_rung: str = LADDER[0],
+    schema_fn=candidates_schema,
 ) -> tuple[Completion, str]:
     """Send a request, weakening the schema constraint until one is accepted."""
     began = LADDER.index(start_rung) if start_rung in LADDER else 0
@@ -94,7 +96,7 @@ def request_with_ladder(
             completion = client.complete(
                 model=model,
                 messages=messages,
-                response_format=response_format_for(rung),
+                response_format=response_format_for(rung, schema_fn=schema_fn),
                 temperature=temperature,
                 max_tokens=max_tokens,
                 seed=seed,
