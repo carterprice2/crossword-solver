@@ -149,19 +149,6 @@ select:focus-visible,
   cursor: not-allowed;
 }
 
-.toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--ink);
-  user-select: none;
-}
-
-.toggle input {
-  accent-color: var(--action);
-}
-
 .warn {
   margin: 10px 0 0;
   color: var(--wrong);
@@ -454,113 +441,6 @@ select:focus-visible,
   opacity: 0.92;
 }
 
-.debug {
-  margin: 0 0 16px;
-  background: var(--sheet);
-  border: 1px solid var(--rule-hard);
-  max-height: min(40vh, 420px);
-  overflow: auto;
-}
-
-.debug-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 10px 16px;
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--ink);
-}
-
-.debug-head h2 {
-  margin: 0;
-  font-family: var(--display);
-  font-size: 16px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.debug-head p {
-  margin: 0;
-  flex: 1;
-  min-width: 220px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.debug-empty {
-  margin: 0;
-  padding: 16px 12px 20px;
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.debug-filters {
-  display: flex;
-  gap: 4px;
-}
-
-.debug-filters button {
-  background: transparent;
-  border: 1px solid var(--rule-hard);
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.debug-filters button.on {
-  border-color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--ink);
-}
-
-.debug table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.debug th,
-.debug td {
-  text-align: left;
-  padding: 6px 10px;
-  border-bottom: 1px solid #d5dee7;
-  vertical-align: top;
-}
-
-.debug th {
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.debug .mono {
-  font-family: var(--grid-font);
-  font-size: 12px;
-}
-
-.debug tr.miss {
-  background: #fbeceb;
-}
-
-.debug tr.hit {
-  background: #e8f3ee;
-}
-
-.offer {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  margin: 0 8px 4px 0;
-  font-family: var(--grid-font);
-  font-size: 12px;
-}
-
-.offer.gold {
-  color: var(--correct);
-  font-weight: 700;
-}
-
 .ingest {
   background: var(--sheet);
   border: 1px solid var(--rule-hard);
@@ -654,11 +534,6 @@ select:focus-visible,
   cursor: pointer;
   border: 0;
   padding: 0;
-}
-
-.offer small {
-  color: var(--muted);
-  font-size: 10px;
 }
 
 .error {

@@ -3,7 +3,6 @@ export type Suite = {
   label: string
   count: number
   description: string
-  warning?: string
 }
 
 export type PuzzleSummary = {

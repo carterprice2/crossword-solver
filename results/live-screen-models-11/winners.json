@@ -6,6 +6,8 @@
     "a5"
   ],
   "models": [
-    "MiniMaxAI/MiniMax-M3"
+    "MiniMaxAI/MiniMax-M3",
+    "deepseek-ai/DeepSeek-V4-Pro",
+    "Qwen/Qwen3.5-397B-A17B"
   ]
 }

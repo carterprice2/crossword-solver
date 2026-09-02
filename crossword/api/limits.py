@@ -14,6 +14,8 @@ class LimitError(Exception):
 
 
 class RateLimiter:
+    """``hourly`` / ``daily`` of 0 means that window is unlimited."""
+
     def __init__(self, hourly: int = 5, daily: int = 40, clock=time.time):
         self.hourly = hourly
         self.daily = daily
@@ -25,13 +27,15 @@ class RateLimiter:
 
     def hit(self, ip: str, now: float | None = None) -> None:
         """Record a start. Raises LimitError if the caller is over quota."""
+        if self.hourly <= 0 and self.daily <= 0:
+            return
         ts = self.clock() if now is None else now
         day = time.strftime("%Y-%m-%d", time.gmtime(ts))
         with self._lock:
             if day != self._day:
                 self._day = day
                 self._day_count = 0
-            if self._day_count >= self.daily:
+            if self.daily > 0 and self._day_count >= self.daily:
                 tomorrow = time.mktime(time.strptime(day, "%Y-%m-%d")) + 86400
                 raise LimitError(
                     "This host is rate-limited. Try again later.",
@@ -40,7 +44,7 @@ class RateLimiter:
             window = ts - 3600
             recent = [t for t in self._hits[ip] if t > window]
             self._hits[ip] = recent
-            if len(recent) >= self.hourly:
+            if self.hourly > 0 and len(recent) >= self.hourly:
                 retry = int(recent[0] + 3600 - ts) + 1
                 raise LimitError(
                     "This host is rate-limited. Try again later.",

@@ -37,12 +37,10 @@ export function fetchPuzzle(id: string): Promise<PuzzleDetail> {
 
 export async function startSolve(body: {
   puzzle_id: string
-  backend: string
   arm: string
   model?: string
   ensemble_model?: string
-  debug?: boolean
-}): Promise<{ job_id: string; backend: string; arm: string; model: string; debug: boolean }> {
+}): Promise<{ job_id: string; backend: string; arm: string; model: string }> {
   const response = await fetch('/api/solves', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -56,7 +54,6 @@ export async function startSolve(body: {
     backend: string
     arm: string
     model: string
-    debug: boolean
   }>
 }
 
@@ -81,7 +78,6 @@ export function ingestPuzzle(body: {
   arm?: string
   model?: string
   ensemble_model?: string
-  debug?: boolean
 }): Promise<IngestResponse> {
   return postJson('/api/ingest', body)
 }
@@ -95,7 +91,6 @@ export function fixIngestGrid(
     arm?: string
     model?: string
     ensemble_model?: string
-    debug?: boolean
   },
 ): Promise<IngestResponse> {
   return postJson(`/api/ingest/${encodeURIComponent(draftId)}/grid`, body)

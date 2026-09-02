@@ -382,6 +382,26 @@ class TestIngestApi(unittest.TestCase):
         self.assertEqual(second.status_code, 429)
         self.assertIn("rate-limited", second.json()["detail"].lower())
 
+    def test_loopback_skips_hourly_limit(self):
+        from fastapi.testclient import TestClient
+
+        from crossword.api.app import create_app
+
+        app = create_app(
+            vision=lambda *_: list(MINI_ROWS),
+            client_factory=lambda *a, **k: ScriptedClient(),
+            require_key=False,
+            limiter=RateLimiter(hourly=1, daily=40),
+        )
+        client = TestClient(app, client=("127.0.0.1", 50000))
+        payload = {"image": PNG, "across": ACROSS, "down": DOWN}
+        first = client.post("/api/ingest", json=payload)
+        self.assertEqual(first.status_code, 200, first.text)
+        self._drain(client, first.json()["job_id"])
+        second = client.post("/api/ingest", json=payload)
+        self.assertEqual(second.status_code, 200, second.text)
+        self._drain(client, second.json()["job_id"])
+
     def _drain(self, client, job_id: str) -> None:
         with client.stream("GET", f"/api/solves/{job_id}/events") as stream:
             for line in stream.iter_lines():
