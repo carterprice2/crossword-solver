@@ -11,8 +11,8 @@
     endgame   promote a declined slot only when crossings already spell
               a real word
 
-Termination is guaranteed by the lock set, which only ever grows, plus a round
-cap and a token budget.
+Termination is guaranteed by the lock set, which only ever grows. Round and
+call caps are safety rails for a stalled model, not the intended stop.
 
 Why rounds at all: a model asked "Big galoot (5)" cold may answer OAFISH
 (wrong length) or LUMMOX or GALOOT. Asked again as "?E??R with A17=LEDGE
@@ -77,7 +77,9 @@ class SolverConfig:
     repair_model: str = ""
     #: Second model queried in round 0; its disagreements are the signal.
     ensemble_model: str = ""
-    max_rounds: int = 5
+    #: Safety rail. The loop already stops when the grid is consistent or
+    #: repair has no remaining targets; this is only for a stalled model.
+    max_rounds: int = 32
     batch_size: int = DEFAULT_BATCH_SIZE
     repair_batch_size: int = REPAIR_BATCH_SIZE
     unknown_mass: float = DEFAULT_UNKNOWN_MASS
@@ -101,7 +103,9 @@ class SolverConfig:
     #: Every complete slot must be a real word, abbreviation, or a candidate
     #: the model proposed for that slot. Implied downs like LFA fail this.
     require_real_words: bool = True
-    max_calls: int = 60
+    #: Safety rail, not the intended stop. A 15×15 with several repair
+    #: stars per round can burn through 60 calls before the grid settles.
+    max_calls: int = 250
 
     @property
     def repair_model_or_default(self) -> str:

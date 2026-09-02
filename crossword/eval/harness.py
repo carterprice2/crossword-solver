@@ -74,27 +74,27 @@ def build_arms(
             "+ repair rounds (full agent)",
             "Re-query unresolved and conflicting slots with the letters the "
             "grid has since pinned down.",
-            replace(base, max_rounds=5, use_constraints=True, use_repair=True),
+            replace(base, use_constraints=True, use_repair=True),
         ),
         "a4": Arm(
             "a4",
             "+ two-model ensemble",
             "A3, plus a second model family in round 0; agreement raises "
             "confidence by noisy-OR.",
-            replace(base, max_rounds=5, ensemble_model=ensemble_model),
+            replace(base, ensemble_model=ensemble_model),
         ),
         "a5": Arm(
             "a5",
             "reasoning model throughout",
             "A3 with the large reasoning model at every stage. The cost ceiling.",
-            replace(base, max_rounds=5, model=reasoning_model,
+            replace(base, model=reasoning_model,
                     repair_model=reasoning_model),
         ),
         "a6": Arm(
             "a6",
             "no wildcard (must guess)",
             "A3 with unknown_mass=0, so the search can never decline a slot.",
-            replace(base, max_rounds=5, unknown_mass=1e-9),
+            replace(base, unknown_mass=1e-9),
         ),
     }
 
