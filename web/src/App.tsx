@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fetchDefaults, fetchPuzzle, fetchPuzzles, fetchSuites, startSolve } from './api'
 import { Board } from './components/Board'
-import { CandidateDebug } from './components/CandidateDebug'
 import { ClueList } from './components/ClueList'
 import { Ingest } from './components/Ingest'
 import { Picker } from './components/Picker'
 import { Rail } from './components/Rail'
 import { Scorecard } from './components/Scorecard'
 import type {
-  CandidateBatch,
-  CandidateSlot,
   CellState,
   Defaults,
   PuzzleDetail,
@@ -113,11 +110,9 @@ export function App() {
   const [puzzles, setPuzzles] = useState<PuzzleSummary[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [puzzle, setPuzzle] = useState<PuzzleDetail | null>(null)
-  const [backend, setBackend] = useState('oracle')
   const [arm, setArm] = useState('a3')
   const [model, setModel] = useState('')
   const [ensembleModel, setEnsembleModel] = useState('')
-  const [debug, setDebug] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fills, setFills] = useState<Record<string, CellState>>({})
@@ -132,9 +127,6 @@ export function App() {
   const [scores, setScores] = useState<Scores | null>(null)
   const [seconds, setSeconds] = useState(0)
   const [scorecard, setScorecard] = useState(false)
-  const [candidateBatches, setCandidateBatches] = useState<CandidateBatch[]>([])
-  const [assignment, setAssignment] = useState<Record<string, string>>({})
-  const [showDebug, setShowDebug] = useState(false)
   const solveGen = useRef(0)
 
   useEffect(() => {
@@ -142,7 +134,6 @@ export function App() {
       .then(([suiteList, defs]) => {
         setSuites(suiteList)
         setDefaults(defs)
-        setBackend(defs.backend)
         setArm(defs.arm)
         if (defs.model) setModel(defs.model)
         if (defs.ensemble_model) setEnsembleModel(defs.ensemble_model)
@@ -175,9 +166,6 @@ export function App() {
     setScorecard(false)
     setHotSlots([])
     setRound(0)
-    setCandidateBatches([])
-    setAssignment({})
-    setShowDebug(false)
     fetchPuzzle(selected)
       .then((detail) => {
         if (cancelled) return
@@ -207,10 +195,8 @@ export function App() {
     return cells
   }, [puzzle, hotSlots])
 
-  const nytLive = suite === 'nyt' && backend === 'nebius'
-  const currentSuite = suites.find((item) => item.id === suite)
+  const nytLive = suite === 'nyt'
   const pickerSuites = [YOURS, ...suites]
-  const noGold = Boolean(puzzle && !puzzle.has_gold)
 
   function listenToJob(jobId: string, slotCount: number) {
     const source = new EventSource(`/api/solves/${jobId}/events`)
@@ -239,15 +225,6 @@ export function App() {
         const tok = event.data.tokens
         if (typeof tok === 'number') setTokens((n) => n + tok)
       }
-      if (event.kind === 'candidates') {
-        const slots = event.data?.slots
-        if (Array.isArray(slots)) {
-          setCandidateBatches((prev) => [
-            ...prev,
-            { round: event.round, slots: slots as CandidateSlot[] },
-          ])
-        }
-      }
       if (event.kind === 'repair') {
         const slots = event.data.slots
         if (Array.isArray(slots)) setHotSlots(slots as string[])
@@ -263,11 +240,9 @@ export function App() {
         const prompt = event.solve?.prompt_tokens ?? 0
         const completion = event.solve?.completion_tokens ?? 0
         if (prompt || completion) setTokens(prompt + completion)
-        if (event.assignment) setAssignment(event.assignment)
         if (event.cells) setFills(marksToFills(event.cells))
         if (event.gold?.length) setGoldFills(marksToFills(event.gold, true))
         else setGoldFills(null)
-        if (event.candidate_batches?.length) setCandidateBatches(event.candidate_batches)
       }
       if (event.kind === 'error') {
         done = true
@@ -295,10 +270,7 @@ export function App() {
     setFills({})
     setGoldFills(null)
     setLog([])
-    setCandidateBatches([])
-    setAssignment({})
     setHotSlots([])
-    setShowDebug(debug)
     setCalls(0)
     setTokens(0)
     setIcr(1)
@@ -306,18 +278,15 @@ export function App() {
 
   async function onSolve() {
     if (!selected || busy) return
-    const liveBackend = noGold ? 'nebius' : backend
     solveGen.current += 1
     setBusy(true)
     resetSolve()
     try {
       const job = await startSolve({
         puzzle_id: selected,
-        backend: liveBackend,
         arm,
-        debug,
-        model: liveBackend === 'nebius' ? model : undefined,
-        ensemble_model: liveBackend === 'nebius' && arm === 'a4' ? ensembleModel : undefined,
+        model,
+        ensemble_model: arm === 'a4' ? ensembleModel : undefined,
       })
       listenToJob(job.job_id, puzzle?.slots ?? 0)
     } catch (err) {
@@ -340,13 +309,11 @@ export function App() {
 
   function onIngestReady(detail: PuzzleDetail, jobId: string) {
     solveGen.current += 1
-    setBackend('nebius')
     setPuzzle(detail)
     setSelected(detail.id)
     setFilled(`0/${detail.slots}`)
     setBusy(true)
     resetSolve()
-    setShowDebug(debug)
     listenToJob(jobId, detail.slots)
   }
 
@@ -358,21 +325,6 @@ export function App() {
           <h1>Crossword Agent</h1>
         </div>
         <div className="controls">
-          <label className="field">
-            <span>Backend</span>
-            <select
-              value={suite === 'yours' || noGold ? 'nebius' : backend}
-              onChange={(e) => setBackend(e.target.value)}
-              disabled={busy || suite === 'yours' || noGold}
-            >
-              <option value="oracle" disabled={suite === 'yours' || noGold}>
-                Oracle (offline)
-              </option>
-              <option value="nebius" disabled={defaults ? !defaults.has_key : false}>
-                Nebius (live)
-              </option>
-            </select>
-          </label>
           <label className="field arm">
             <span>Arm</span>
             <select
@@ -388,36 +340,28 @@ export function App() {
               ))}
             </select>
           </label>
-          {(backend === 'nebius' || suite === 'yours' || noGold) ? (
-            <>
-              <ModelSelect
-                label={arm === 'a4' ? 'Primary' : 'Model'}
-                value={model || defaults?.model || ''}
-                models={listedModels(defaults?.models)}
-                disabled={busy}
-                onChange={setModel}
-              />
-              {arm === 'a4' ? (
-                <ModelSelect
-                  label="Ensemble"
-                  value={ensembleModel || defaults?.ensemble_model || ''}
-                  models={listedModels(defaults?.models)}
-                  disabled={busy}
-                  onChange={setEnsembleModel}
-                />
-              ) : null}
-            </>
-          ) : null}
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={debug}
+          <ModelSelect
+            label={arm === 'a4' ? 'Primary' : 'Model'}
+            value={model || defaults?.model || ''}
+            models={listedModels(defaults?.models)}
+            disabled={busy}
+            onChange={setModel}
+          />
+          {arm === 'a4' ? (
+            <ModelSelect
+              label="Ensemble"
+              value={ensembleModel || defaults?.ensemble_model || ''}
+              models={listedModels(defaults?.models)}
               disabled={busy}
-              onChange={(e) => setDebug(e.target.checked)}
+              onChange={setEnsembleModel}
             />
-            Debug candidates
-          </label>
-          <button className="start" type="button" onClick={onSolve} disabled={!selected || busy}>
+          ) : null}
+          <button
+            className="start"
+            type="button"
+            onClick={onSolve}
+            disabled={!selected || busy || !defaults?.has_key}
+          >
             {busy ? 'Solving' : 'Solve'}
           </button>
         </div>
@@ -425,12 +369,8 @@ export function App() {
 
       {nytLive ? (
         <p className="warn">
-          Live 15×15 solves spend tokens and take a while. Oracle is free and still scores against
-          gold.
+          Live 15×15 solves spend tokens and take a while.
         </p>
-      ) : null}
-      {currentSuite?.warning && suite === 'nyt' && !nytLive ? (
-        <p className="warn">{currentSuite.warning}</p>
       ) : null}
 
       <Picker
@@ -448,7 +388,6 @@ export function App() {
           arm={arm}
           model={model}
           ensembleModel={ensembleModel}
-          debug={debug}
           onError={setError}
           onReady={onIngestReady}
         />
@@ -458,14 +397,6 @@ export function App() {
 
       {puzzle ? (
         <>
-          {showDebug ? (
-            <CandidateDebug
-              puzzle={puzzle}
-              batches={candidateBatches}
-              assignment={assignment}
-              showGold={puzzle.has_gold}
-            />
-          ) : null}
           <div className="stage">
             <div className={goldFills ? 'boards compare' : 'boards'}>
               <div className="board-wrap">

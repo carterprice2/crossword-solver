@@ -12,61 +12,108 @@ searches for the best consistent grid, and then **goes back to the model with
 the letters it has since learned**. That last step is the interesting one, and
 the evaluation is designed to measure exactly what it is worth.
 
+- [Run locally](#run-locally)
+- [How the agent works](#how-the-agent-works)
+- [Evaluation](#evaluation) · [REPORT.md](REPORT.md)
+- [Hosting](docs/hosting.md)
+
 ---
 
-## Quick start
+## Run locally
 
-No installation, no dependencies, no API key:
+Every command below is from the **repo root**. The solver has no runtime
+Python dependencies: `python3 -m crossword` works against the checkout. The
+web UI is an optional extra.
+
+### Prerequisites
+
+| Goal | Need |
+|---|---|
+| Tests and the terminal demo | Python **3.11+** |
+| Word-membership checks | `/usr/share/dict/words` (macOS has it; Debian/Ubuntu: `sudo apt install wamerican`) |
+| Web UI | Node.js **22** (20.19+ also works) and the `[web]` extra |
+| Live model solves, photo ingest | A [Nebius Token Factory](https://tokenfactory.nebius.com/) API key (free signup) |
+
+### 1. Clone
 
 ```bash
-git clone <this repo>
+git clone https://github.com/carterprice2/crossword-solver.git
 cd crossword-solver
-make test     # 299 tests, offline (API tests skip without FastAPI)
+```
+
+### 2. Confirm the checkout (no install, no API key)
+
+```bash
+make test     # stdlib unittest, no network
 make demo     # watch a solve, offline
 ```
 
 `make demo` runs the full agent loop against synthetic candidate lists in which
 40% of the correct answers are missing, so you can watch the repair rounds
-recover them. Membership checks use `/usr/share/dict/words` (present on macOS;
-on Debian/Ubuntu, `apt install wamerican`).
+recover them. API tests skip unless FastAPI is installed (step 4).
 
-To run it for real, get a key from
-[tokenfactory.nebius.com](https://tokenfactory.nebius.com/) (free signup) and
-either `export NEBIUS_API_KEY=...` or put it in a gitignored `.env` in this
-directory:
+### 3. Live CLI solves
+
+Get a key from [tokenfactory.nebius.com](https://tokenfactory.nebius.com/) and
+put it in a gitignored `.env` in this directory. The CLI also honors
+`export NEBIUS_API_KEY=...`.
 
 ```bash
-export NEBIUS_API_KEY=...
-make models                                  # check the key, list models
-python3 -m crossword solve corpus/mini/mini-09-00-0.xd --live
-make eval                                    # the ablation matrix
+printf 'NEBIUS_API_KEY=%s\n' 'paste-the-key' > .env
+make models                                                    # key works, list models
+python3 -m crossword solve corpus/mini/mini-09-00-0.xd --live  # one puzzle
+make eval                                                      # ablation matrix
 ```
 
-### Web UI
+`.env` is loaded automatically (`KEY=VAL` lines, no override of variables
+already in the environment). Docker Compose uses a separate `crossword.env`;
+see [docs/hosting.md](docs/hosting.md).
+
+### 4. Web UI
 
 Pick a mini or NYT puzzle, watch the grid fill, and see gold-check scores.
 **Your puzzle** takes a grid screenshot plus Across/Down clues (or a `.xd`
-paste) and starts a live solve when the mask matches. Check **Debug
-candidates** to inspect per-slot LLM lists against gold (HIT vs MISS) on
-corpus puzzles. After a gold-keyed solve the answer-key grid sits beside the
-agent's fill. The agent itself is unchanged; the page is another listener on
-the same event stream as `--live`.
+paste) and starts a live solve when the mask matches. After a gold-keyed solve the answer-key grid sits beside the
+agent's fill. The page is another listener on the same event stream as
+`--live`; the agent is unchanged.
+
+The page solves on Token Factory. Put `NEBIUS_API_KEY` in `.env` (step 3)
+before clicking **Solve**; without a key the button stays disabled. Uploads
+need the same key (vision + solve). For an offline demo, use `make demo`
+instead.
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -e '.[web]'
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e '.[web]'
 cd web && npm install && cd ..
-make serve PY=.venv/bin/python     # builds the UI, then http://127.0.0.1:8000
+make serve                         # builds the UI, then http://127.0.0.1:8000
 ```
 
-Oracle mode is the default when `NEBIUS_API_KEY` is unset, so the first visit
-works offline. Uploads need a Token Factory key (vision + solve). For live
-corpus solves, put the key in `.env` and choose Nebius in the UI. Dev loop:
-`make serve-dev PY=.venv/bin/python` in one terminal and `cd web && npm run
-dev` in another (Vite on :5173 proxies `/api` to :8000).
+If the venv is not activated, point Make at it: `make serve PY=.venv/bin/python`.
+
+**Hot-reload loop** — API on :8000, Vite on :5173, `/api` proxied:
+
+```bash
+# terminal 1
+make serve-dev                     # or: python3 -m crossword serve --reload
+
+# terminal 2
+cd web && npm run dev              # open http://127.0.0.1:5173
+```
 
 To put the page on a Nebius CPU VM in front of Token Factory, see
 [docs/hosting.md](docs/hosting.md).
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `web extra missing` | From the repo root, in the venv you will serve with: `pip install -e '.[web]'` |
+| `no web/dist yet` | `make serve` (runs `npm run build`) or the two-terminal `serve-dev` + `npm run dev` loop |
+| `npm run build` fails on engine / Node version | Use Node 22, or Node 20.19+ |
+| Uploads return 503 / "no Token Factory key" | Put `NEBIUS_API_KEY` in `.env` and restart the server |
+| API tests skipped | Expected without FastAPI; install the `[web]` extra, then `make test` |
 
 ### Live tournament
 
@@ -293,6 +340,8 @@ it — the `ModelClient` protocol is the seam. The web UI is the same idea: an
 optional `[web]` extra (`fastapi`, `uvicorn`) so `make test` stays zero-install.
 
 ## Commands
+
+See [Run locally](#run-locally) for clone, venv, `.env`, and the web UI.
 
 ```bash
 python3 -m crossword solve PUZZLE.xd [--live] [--arm a3] [--prefill 0.25]

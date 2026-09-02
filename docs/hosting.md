@@ -26,9 +26,8 @@ chmod 600 crossword.env
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-Open `http://<public-ip>/`. **Your puzzle** is the BYO tab. Mini still works
-offline-style only if you also set oracle locally; on this host the key is
-present, so Nebius is the default.
+Open `http://<public-ip>/`. **Your puzzle** is the BYO tab. Mini and NYT
+solves hit Token Factory; the key must be present.
 
 Health: `curl -s http://<public-ip>/api/health`
 
@@ -49,8 +48,9 @@ file via compose `env_file` only for `app`; export it for Caddy or bake the
 hostname into the Caddyfile). Recreate: `docker compose -f deploy/docker-compose.yml up -d`.
 
 A 15×15 live solve can run for minutes. `flush_interval -1` keeps SSE from
-buffering. The process is one solve at a time, 5 ingest-or-solve starts per
-client IP per hour, and `DAILY_SOLVE_CAP` (default 40) for the whole process.
+buffering. One solve at a time. Loopback (`make serve` on 127.0.0.1) is
+uncapped. Public traffic is 5 starts per IP per hour, and `DAILY_SOLVE_CAP`
+(default 40) for the whole process.
 
 ## Updates
 

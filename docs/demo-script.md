@@ -1,46 +1,37 @@
 # 60-second demo: shot list and script
 
-The whole demo runs offline (`--backend oracle`), so it needs no API key, costs
-nothing, and cannot fail on camera because of a rate limit. Use
-`--backend replay --replay <trace>` if you want a *live-model* recording that is
-still bit-for-bit reproducible.
+The assignment cap is one minute: show the agent working, and say how it
+works. Record the **website** against Token Factory. Do not use the oracle.
 
-## Setup
-
-```bash
-# From the repo root. ~100x30 terminal, large font. Check it fits before recording:
-FORCE_COLOR=1 python3 -m crossword solve corpus/mini/mini-11-04-0.xd \
-    --backend oracle --oracle-recall 0.6 --oracle-top1-error 0.5 --live
-```
-
-`--oracle-recall 0.6` means 40% of the correct answers are missing from the
-first pass. That is the point: the repair rounds visibly recover them, so the
-mechanism is on screen rather than merely described.
+Pick a 7×7 from Mini (`mini-07-00-0`) and arm `a3`.
+Do one clean live take first; if a later take needs to be bit-for-bit the
+same, record that solve (`--record`) and replay it in the CLI, but the
+submitted video should still *look* like the website.
 
 ## Shot list
 
 | Time | Shot | Say |
 |---|---|---|
-| 0:00–0:08 | Terminal, type `make demo` | "A crossword isn't trivia — it's a constraint problem where the answers come from a language model." |
-| 0:08–0:20 | Round 0 sweeps the grid, cells turn yellow | "Round one asks the model for every clue cold. It batches clues that actually cross each other, so the model can check itself." |
-| 0:20–0:35 | **Repair lines appear; conflicts listed; cells turn green** | "Then the crossings vote. Where two confident answers agree, the letter locks — green. Where they conflict, the agent goes *back* to the model with the letters it now knows and the answers it already ruled out." |
-| 0:35–0:45 | Frame flips to **gold check**: every letter green, `SOLVED WCR 1.000` | "Forty percent of the correct answers were missing from that first pass. The loop recovered them. Green now means *correct*, not just locked." |
-| 0:45–0:60 | Cut to `results/synthetic-sweep.json` table or REPORT.md | "And that's the measurement: the worse the model, the more the loop is worth — plus two-tenths of a point of WCR at the low end." |
+| 0:00–0:05 | Full-screen card, four boxes: **CANDIDATES → CROSSINGS → SEARCH → REPAIR** | "A crossword isn’t trivia. It’s a constraint problem. Answers come from a language model, then the grid checks them." |
+| 0:05–0:12 | Website: Mini, 7×7, arm `a3`, click **Solve** | "Round one asks the model for every clue cold. Clues that actually cross get batched together, so it can check itself." |
+| 0:12–0:35 | Grid filling. Yellow, then green locks. Rail: round, conflicts, repair. | "Then the crossings vote. Where two confident answers agree, the letter locks. Where they conflict, the agent goes back to the model with the letters it now knows and the answers it already ruled out." |
+| 0:35–0:46 | Gold check: Agent vs answer key. **Solved**, WCR. | "The first pass is a guess. The loop is the solver." |
+| 0:46–0:60 | Overlay or cut: repair-gain row from REPORT.md | "That’s the measurement: the repair loop adds two hundredths of WCR when candidates are good, and almost three tenths when they’re bad. Spend the extra tokens only when they earn it." |
 
 ## The one number to say out loud
 
 > The repair loop adds **+0.02 WCR when candidates are good and +0.29 when
-> they're bad.** Its value grows exactly as the base model gets weaker.
+> they’re bad.** Its value grows as the base model gets weaker.
 
-That is the finding worth a follow-up conversation: it says when the extra
-tokens are justified, and when a single pass is enough.
+Leave the model name out of the voiceover until the final pick is locked.
+If the live 7×7 overruns, speed the middle of the fill in the edit — keep
+round 0, the first repair, and the gold check at full speed.
 
 ## Recording notes
 
-- `FORCE_COLOR=1` is already set by `make demo`; without a TTY the view falls
-  back to plain scrolling output, which reads badly on video.
-- The in-place redraw needs a terminal at least as tall as the grid plus 12
-  lines. An 11×11 wants ~30 rows.
-- If a take runs long, use `mini-09-00-0.xd` (9×9, ~2s) instead of the 11×11.
-- For a live-model take: `--record trace.jsonl` once, then
-  `--backend replay --replay trace.jsonl --live` for every subsequent take.
+- Site: `make serve PY=.venv/bin/python` → http://127.0.0.1:8000
+- Needs `NEBIUS_API_KEY`. Solve is live; a take can fail. Budget two backups.
+- Browser window ~1280×800, no bookmarks bar, Debug off.
+- Do not open the NYT 15×15. Do not use Your puzzle. Do not show the arm list
+  beyond `a3`.
+- Word count is ~140. Do not add a second architecture slide.

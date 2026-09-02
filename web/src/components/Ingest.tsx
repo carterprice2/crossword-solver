@@ -7,7 +7,6 @@ type Props = {
   arm: string
   model: string
   ensembleModel: string
-  debug: boolean
   onError: (message: string | null) => void
   onReady: (puzzle: PuzzleDetail, jobId: string) => void
 }
@@ -22,7 +21,7 @@ function toggleCell(rows: string[], r: number, c: number): string[] {
   })
 }
 
-export function Ingest({ busy, arm, model, ensembleModel, debug, onError, onReady }: Props) {
+export function Ingest({ busy, arm, model, ensembleModel, onError, onReady }: Props) {
   const [across, setAcross] = useState('')
   const [down, setDown] = useState('')
   const [xd, setXd] = useState('')
@@ -56,8 +55,8 @@ export function Ingest({ busy, arm, model, ensembleModel, debug, onError, onRead
     try {
       const extra = arm === 'a4' && ensembleModel ? { ensemble_model: ensembleModel } : {}
       const body = xd.trim()
-        ? { xd: xd.trim(), arm, model, debug, ...extra }
-        : { image: image || undefined, across, down, arm, model, debug, ...extra }
+        ? { xd: xd.trim(), arm, model, ...extra }
+        : { image: image || undefined, across, down, arm, model, ...extra }
       const result = await ingestPuzzle(body)
       handle(result)
     } catch (err) {
@@ -77,7 +76,6 @@ export function Ingest({ busy, arm, model, ensembleModel, debug, onError, onRead
         rows: draft.rows,
         arm,
         model,
-        debug,
         ...extra,
       })
       handle(result)

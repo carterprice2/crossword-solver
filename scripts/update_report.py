@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate REPORT.md's result tables from results/synthetic-sweep.json.
+"""Regenerate REPORT.md result tables from committed result files.
 
 The tables live between BEGIN/END markers and are rewritten in place, so no
 number in the report is ever transcribed by hand and the report cannot drift
@@ -80,6 +80,104 @@ def repair_table(data: dict) -> str:
     return table(headers, rows) + note
 
 
+def load_cells(path: str) -> list[dict]:
+    rows = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            payload = json.loads(line)
+            if "puzzle_id" in payload:
+                rows.append(payload)
+    return rows
+
+
+def _short(model: str) -> str:
+    return model.split("/")[-1] if model else "?"
+
+
+def _usd(value) -> str:
+    if value is None:
+        return "?"
+    return f"{float(value):.3f}"
+
+
+def live_model_table(cells: list[dict]) -> str:
+    def sort_key(record: dict) -> tuple:
+        scores = record.get("scores") or {}
+        wcr = scores.get("wcr")
+        if wcr is None:
+            return (1, 0.0, record.get("model") or "")
+        usd = (record.get("solve") or {}).get("cost_usd")
+        cost = float(usd) if usd is not None else float("inf")
+        return (0, -wcr, cost, record.get("model") or "")
+
+    ordered = sorted(cells, key=sort_key)
+    headers = [
+        "model", "WCR", "LCR", "exact", "tokens", "USD", "turns", "calls", "sec", "rung",
+    ]
+    rows = []
+    for record in ordered:
+        scores = record.get("scores") or {}
+        solve = record.get("solve") or {}
+        tokens = int((solve.get("prompt_tokens") or 0) + (solve.get("completion_tokens") or 0))
+        rungs = solve.get("rungs") or {}
+        rung = ", ".join(sorted(set(rungs.values()))) if rungs else "?"
+        rows.append(
+            [
+                _short(record.get("model") or ""),
+                f"{scores['wcr']:.3f}",
+                f"{scores['lcr']:.3f}",
+                "1" if scores.get("exact") else "0",
+                str(tokens),
+                _usd(solve.get("cost_usd")),
+                str(solve.get("rounds") or 0),
+                str(solve.get("calls") or 0),
+                f"{float(solve.get('seconds') or 0):.1f}",
+                rung,
+            ]
+        )
+    note = (
+        "\n\nArm `a5` (the screened model at every stage), puzzle "
+        "`mini-11-04-0` (11×11, 42 slots), seed 0, prefill 0. "
+        "Ranked by WCR, then lower USD. Raw cells: "
+        "`results/live-screen-models-11/cells.jsonl`."
+    )
+    return table(headers, rows) + note
+
+
+def live_qwen_arms_table(cells: list[dict]) -> str:
+    headers = ["arm", "WCR", "LCR", "Prec", "Rec", "open", "USD", "JSON misses"]
+    rows = []
+    for record in sorted(cells, key=lambda r: r.get("arm") or ""):
+        scores = record.get("scores") or {}
+        solve = record.get("solve") or {}
+        misses = sum(
+            1
+            for warning in (solve.get("warnings") or [])
+            if "no JSON object" in str(warning)
+        )
+        rows.append(
+            [
+                record.get("arm") or "?",
+                f"{scores['wcr']:.3f}",
+                f"{scores['lcr']:.3f}",
+                f"{scores['cell_precision']:.3f}",
+                f"{scores['cell_recall']:.3f}",
+                str(len(solve.get("open_slots") or [])),
+                _usd(solve.get("cost_usd")),
+                str(misses),
+            ]
+        )
+    note = (
+        "\n\n`Qwen/Qwen3.5-397B-A17B` on `mini-11-04-0`, seed 0. "
+        "`JSON misses` counts `no JSON object found in response` warnings. "
+        "Raw cells: `results/live-max-correct-arms-11/cells.jsonl`."
+    )
+    return table(headers, rows) + note
+
+
 def replace_block(text: str, name: str, body: str) -> str:
     pattern = re.compile(
         rf"(<!-- BEGIN {name} -->\n).*?(<!-- END {name} -->)", re.DOTALL
@@ -93,6 +191,14 @@ def main() -> int:
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--sweep", default=os.path.join(here, "results", "synthetic-sweep.json"))
+    ap.add_argument(
+        "--live-models",
+        default=os.path.join(here, "results", "live-screen-models-11", "cells.jsonl"),
+    )
+    ap.add_argument(
+        "--live-arms",
+        default=os.path.join(here, "results", "live-max-correct-arms-11", "cells.jsonl"),
+    )
     ap.add_argument("--report", default=os.path.join(here, "REPORT.md"))
     args = ap.parse_args()
 
@@ -103,6 +209,8 @@ def main() -> int:
 
     text = replace_block(text, "SWEEP_TABLE", sweep_table(data))
     text = replace_block(text, "REPAIR_DELTA", repair_table(data))
+    text = replace_block(text, "LIVE_MODEL_GRID", live_model_table(load_cells(args.live_models)))
+    text = replace_block(text, "LIVE_QWEN397_ARMS", live_qwen_arms_table(load_cells(args.live_arms)))
     with open(args.report, "w", encoding="utf-8") as fh:
         fh.write(text)
     print(f"updated {args.report}", file=sys.stderr)

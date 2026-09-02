@@ -39,7 +39,6 @@ from ..run import (
     RunError,
     annotate_candidate_event,
     cell_correctness,
-    default_backend,
     find_puzzle,
     gold_cells,
     list_puzzles,
@@ -59,12 +58,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 NO_KEY = "This host has no Token Factory key."
 ORACLE_NEEDS_GOLD = "Oracle needs a puzzle with an answer key. Use Nebius for uploads."
+DEFAULT_BACKEND = "nebius"
 WEB_ARMS = ("a2", "a3", "a4", "a5", "a6")
 
 
 class SolveRequest(BaseModel):
     puzzle_id: str
-    backend: str | None = None
+    backend: str = DEFAULT_BACKEND
     arm: str = "a3"
     model: str | None = None
     ensemble_model: str | None = None
@@ -117,6 +117,7 @@ def create_app(
     store = JobStore()
     draft_store = drafts or DraftStore()
     rate = limiter or RateLimiter(
+        hourly=int(os.environ.get("HOURLY_SOLVE_CAP", "5") or "5"),
         daily=int(os.environ.get("DAILY_SOLVE_CAP", "40") or "40"),
     )
     app.state.store = store
@@ -129,8 +130,6 @@ def create_app(
     def has_key() -> bool:
         if app.state.require_key is False:
             return True
-        if app.state.require_key is True:
-            return bool(os.environ.get("NEBIUS_API_KEY"))
         return bool(os.environ.get("NEBIUS_API_KEY"))
 
     def lookup_puzzle(puzzle_id: str) -> tuple[Puzzle, dict | None]:
@@ -140,8 +139,11 @@ def create_app(
         return find_puzzle(puzzle_id), None
 
     def charge(request: Request) -> None:
+        ip = _client_ip(request)
+        if _is_loopback(ip):
+            return
         try:
-            rate.hit(_client_ip(request))
+            rate.hit(ip)
         except LimitError as exc:
             headers = {}
             if exc.retry_after is not None:
@@ -168,7 +170,7 @@ def create_app(
     def defaults():
         arms = build_arms()
         return {
-            "backend": default_backend(),
+            "backend": DEFAULT_BACKEND,
             "arm": "a3",
             "model": DEFAULT_MODEL,
             "models": list(KNOWN_MODELS),
@@ -230,7 +232,7 @@ def create_app(
             )
             if stored.ingest.puzzle:
                 stored.ingest.puzzle.metadata["id"] = stored.id
-            return _ready_or_edit(app, store, stored, req, backend="nebius")
+            return _ready_or_edit(app, store, stored, req)
 
         try:
             image_bytes, mime = decode_image(req.image or "")
@@ -254,7 +256,7 @@ def create_app(
         )
         if stored.ingest.puzzle is not None:
             stored.ingest.puzzle.metadata["id"] = stored.id
-        return _ready_or_edit(app, store, stored, req, backend="nebius")
+        return _ready_or_edit(app, store, stored, req)
 
     @app.post("/api/ingest/{draft_id}/grid")
     def ingest_grid(draft_id: str, req: GridFixRequest, request: Request):
@@ -277,7 +279,7 @@ def create_app(
             updated.ingest.puzzle.metadata["id"] = draft_id
         if updated.ingest.status == "ready":
             charge(request)
-        return _ready_or_edit(app, store, updated, req, backend="nebius")
+        return _ready_or_edit(app, store, updated, req)
 
     @app.post("/api/solves")
     def start_solve(req: SolveRequest, request: Request):
@@ -285,10 +287,10 @@ def create_app(
             puzzle, prefill = lookup_puzzle(req.puzzle_id)
         except RunError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
-        backend = req.backend or default_backend()
+        backend = req.backend or DEFAULT_BACKEND
         if backend == "oracle" and not puzzle.has_gold():
             raise HTTPException(status_code=400, detail=ORACLE_NEEDS_GOLD)
-        if backend == "nebius" and not has_key() and app.state.client_factory is make_client:
+        if backend == DEFAULT_BACKEND and not has_key() and app.state.client_factory is make_client:
             raise HTTPException(status_code=503, detail=NO_KEY)
         charge(request)
         return _launch(app, store, puzzle, req, backend, prefill=prefill)
@@ -337,7 +339,9 @@ def _read_rows(app: FastAPI, image_bytes: bytes, mime: str) -> list[str]:
     return parse_grid_rows(completion.text)
 
 
-def _ready_or_edit(app, store: JobStore, stored: StoredDraft, req, *, backend: str) -> dict:
+def _ready_or_edit(
+    app, store: JobStore, stored: StoredDraft, req: IngestRequest | GridFixRequest
+) -> dict:
     ingest = stored.ingest
     if ingest.status != "ready" or ingest.puzzle is None:
         return {
@@ -356,15 +360,14 @@ def _ready_or_edit(app, store: JobStore, stored: StoredDraft, req, *, backend: s
         }
     solve_req = SolveRequest(
         puzzle_id=stored.id,
-        backend=backend,
-        arm=getattr(req, "arm", "a3"),
-        model=getattr(req, "model", None),
-        ensemble_model=getattr(req, "ensemble_model", None),
-        seed=getattr(req, "seed", 7),
-        debug=getattr(req, "debug", False),
+        arm=req.arm,
+        model=req.model,
+        ensemble_model=req.ensemble_model,
+        seed=req.seed,
+        debug=req.debug,
     )
     launched = _launch(
-        app, store, ingest.puzzle, solve_req, backend, prefill=ingest.prefill
+        app, store, ingest.puzzle, solve_req, DEFAULT_BACKEND, prefill=ingest.prefill
     )
     return {
         "status": "ready",
@@ -464,6 +467,10 @@ def _run_job(
         job.fail(str(exc))
     finally:
         store.release(job.id)
+
+
+def _is_loopback(ip: str) -> bool:
+    return ip in {"127.0.0.1", "::1", "localhost"}
 
 
 def _client_ip(request: Request) -> str:

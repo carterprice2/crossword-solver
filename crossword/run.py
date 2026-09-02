@@ -73,7 +73,6 @@ def list_suites() -> list[dict[str, Any]]:
                 "label": "NYT",
                 "count": len(nyt_paths),
                 "description": "Friday May 28 2021, 15×15. Live solves spend tokens.",
-                "warning": "A live 15×15 Nebius solve is slow and costs real tokens. Oracle is free.",
             }
         )
     return suites
@@ -308,11 +307,6 @@ def run_solve(
         else None
     )
     return result, scores
-
-
-def default_backend() -> str:
-    """Oracle when there is no key, so the UI works on a fresh clone."""
-    return "nebius" if os.environ.get("NEBIUS_API_KEY") else "oracle"
 
 
 def prefill_for(puzzle: Puzzle, ratio: float, seed: int) -> dict:
