@@ -110,6 +110,15 @@ class TestRunSolve(unittest.TestCase):
         self.assertGreater(a3.unknown_mass, a6.unknown_mass)
         self.assertLess(a6.unknown_mass, 1e-6)
 
+    def test_repair_arms_keep_a_high_safety_cap(self):
+        from crossword.run import solver_config
+
+        _, a2 = solver_config(arm="a2")
+        _, a3 = solver_config(arm="a3")
+        self.assertEqual(a2.max_rounds, 1)
+        self.assertGreaterEqual(a3.max_rounds, 20)
+        self.assertGreaterEqual(a3.max_calls, 200)
+
 
 class TestCellCorrectness(unittest.TestCase):
     def test_marks_wrong_cells_without_revealing_gold_letter(self):

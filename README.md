@@ -293,6 +293,54 @@ python3 -m crossword eval --suite mini --arms a0,a1,a2,a3 --seeds 3
 python3 -m crossword eval --suite mini --arms a0,a1,a2,a3 --backend oracle  # free
 ```
 
+### Searching the space
+
+The input is not one puzzle and one model. The knobs that actually move the
+score are:
+
+| Knob | What it varies | Why it is a search, not a grid |
+|---|---|---|
+| **Arm** | one-shot → per-clue → constraints → repair → ensemble / cost-ceiling / no-wildcard | each step isolates one mechanism (`a3 − a2` is the loop, nothing else) |
+| **Model** | Token Factory catalog (Qwen 30B through MiniMax, DeepSeek, Llama, gpt-oss, …) | quality, schema support, and $/token are not the same ranking |
+| **Candidate quality** | oracle `recall` and `top1_error` | the architecture's real input is a noisy list; this is how much model error it absorbs |
+| **Grid size** | generated 7×7 / 9×9 / 11×11 | a mini of common words and an 11×11 of Webster obscurities are not the same task |
+
+A full 8-model × 7-arm × 3-size cube is the wrong spend. The harness instead
+searches in stages (`make screen-arms`, then `screen-models`, then
+`final-grid`), pauses on `winners.json`, and only then buys the next cells.
+Rank is **mean WCR**. Every cell also records tokens, USD, turns, calls, and
+wall-clock; **cost is a column and a tie-break, not a filter.** Accuracy
+without a price is not a result you can ship.
+
+Offline, the oracle sweep is the cheap backbone: 12 puzzles × 3 seeds × five
+noise levels, no API key. Live Token Factory runs are smaller *n* on purpose
+— real tokens, real JSON failures, real latency — and they are quoted as
+what they are, not as a substitute for the sweep.
+
+### What that found
+
+**The repair loop is worth more when the model is worse.** Constraint search
+(`a2`) already solves a clean candidate list. Re-query (`a3 − a2`) adds about
+**+0.02 WCR** when recall is 0.95, and about **+0.28** when recall is 0.35.
+With a strong model the extra tokens roughly double the call count for a
+small gain; with a cheap one the loop is what makes the system work at all.
+
+**Live, one generated 11×11, arm `a5` (the screened model at every stage):**
+
+| model | WCR | exact | tokens | USD | sec |
+|---|---|---|---|---|---|
+| MiniMax-M3 | 1.000 | yes | 23k | **$0.011** | **18.6** |
+| DeepSeek-V4-Pro | 1.000 | yes | 14k | $0.034 | 24.3 |
+| Qwen 397B | 0.952 | no | 48k | $0.143 | 554.6 |
+| Qwen 30B (cheap default) | 0.524 | no | 52k | $0.011 | 300.9 |
+
+MiniMax tied DeepSeek on exact solve and won the tie-break on dollars and
+wall-clock. DeepSeek used fewer tokens; MiniMax was still cheaper. Qwen 30B
+left 13 slots blank — the loop cannot invent a word the model never offered.
+Full grid, caveats (*n* = 1 puzzle, 1 seed; `final-grid` and published NYT
+not run): [REPORT.md §5](REPORT.md) and
+[`results/live-screen-models-11/`](results/live-screen-models-11/summary.md).
+
 ### The corpus
 
 **Generated (committed, 7 unique puzzles).** Built by `crossword/gen/` from a word
