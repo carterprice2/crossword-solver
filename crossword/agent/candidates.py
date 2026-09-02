@@ -21,16 +21,18 @@ from dataclasses import dataclass, field
 
 from ..client import Completion, ModelClient, SchemaRejected
 from ..model import Puzzle
+from ..progress import log as progress_log
 from ..schemas import (
     FREE_TEXT,
     LADDER,
     Candidate,
     candidates_schema,
+    looks_like_candidates,
     parse_candidates,
     response_format_for,
 )
 from .constraints import SlotGraph
-from .trace import BATCH_DONE, CANDIDATES, Tracer
+from .trace import BATCH_DONE, BATCH_SENT, CANDIDATES, Tracer
 
 DEFAULT_BATCH_SIZE = 14
 REPAIR_BATCH_SIZE = 8
@@ -76,6 +78,10 @@ def batch_by_locality(
     return batches
 
 
+def _truncated(completion: Completion, budget: int) -> bool:
+    return completion.completion_tokens >= max(1, int(budget * 0.95))
+
+
 def request_with_ladder(
     client: ModelClient,
     *,
@@ -87,24 +93,57 @@ def request_with_ladder(
     start_rung: str = LADDER[0],
     schema_fn=candidates_schema,
 ) -> tuple[Completion, str]:
-    """Send a request, weakening the schema constraint until one is accepted."""
+    """Send a request, weakening the schema constraint until one is usable.
+
+    Token Factory often *accepts* ``json_schema`` (HTTP 200) while a thinking
+    model burns the whole ``max_tokens`` budget on chain-of-thought and never
+    emits JSON. Treat that as a failed rung: bump the budget once, then step
+    down the ladder. Only pin a rung when ``looks_like_candidates`` is true.
+    """
     began = LADDER.index(start_rung) if start_rung in LADDER else 0
     last: Exception | None = None
+    last_completion: Completion | None = None
+    last_rung = start_rung
+    bumped = max(8192, max_tokens)
     for rung in LADDER[began:]:
         messages = build_messages(schema_in_prompt=rung in (FREE_TEXT, "json_object"))
-        try:
-            completion = client.complete(
-                model=model,
-                messages=messages,
-                response_format=response_format_for(rung, schema_fn=schema_fn),
-                temperature=temperature,
-                max_tokens=max_tokens,
-                seed=seed,
+        budget = max_tokens
+        while True:
+            try:
+                completion = client.complete(
+                    model=model,
+                    messages=messages,
+                    response_format=response_format_for(rung, schema_fn=schema_fn),
+                    temperature=temperature,
+                    max_tokens=budget,
+                    seed=seed,
+                )
+            except SchemaRejected as exc:
+                last = exc
+                progress_log(f"ladder {model} {rung} rejected schema; next rung")
+                break
+            last_completion = completion
+            last_rung = rung
+            if looks_like_candidates(completion.text):
+                if rung != start_rung or budget != max_tokens:
+                    progress_log(
+                        f"ladder {model} usable at {rung} max_tokens={budget}"
+                    )
+                return completion, rung
+            if _truncated(completion, budget) and budget < bumped:
+                progress_log(
+                    f"ladder {model} {rung} truncated at {budget} tokens; "
+                    f"retry {bumped}"
+                )
+                budget = bumped
+                continue
+            progress_log(
+                f"ladder {model} {rung} no JSON ({completion.completion_tokens} tok); "
+                "next rung"
             )
-            return completion, rung
-        except SchemaRejected as exc:
-            last = exc
-            continue
+            break
+    if last_completion is not None:
+        return last_completion, last_rung
     raise last or RuntimeError("no rung of the schema ladder succeeded")
 
 
@@ -140,6 +179,14 @@ class CandidateGenerator:
         round_index: int,
     ) -> BatchResult:
         expected = {sid: self.graph.length[sid] for sid in slot_ids}
+        if self.tracer:
+            self.tracer.emit(
+                BATCH_SENT,
+                f"batch {','.join(slot_ids)} -> {model}",
+                round=round_index,
+                slots=slot_ids,
+                model=model,
+            )
         try:
             completion, rung = request_with_ladder(
                 self.client,

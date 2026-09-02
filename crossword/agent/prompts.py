@@ -34,7 +34,7 @@ length; you are not given a word list.
 solver than a confident guess, because low-confidence answers are checked \
 against crossings before being accepted.
 - If you genuinely do not know, still return at least 3 low confidence candidates that fit so that we can try them. 
-- Remember that these answers can be abbreviations, proper nouns, wordplay, riddles, crosswordese, etc. so always fit the length. 
+- Remember that these answers can be abbreviations, proper nouns, wordplay, riddles, crosswordese, or mashups of two words run together with no space (ICEAGE, not ICE AGE). Always fit the length. 
 
 
 
@@ -219,7 +219,7 @@ def star_repair_messages(
         "",
         "These entries share cells. A fill is only legal if every pair agrees "
         "on the shared letter AND every answer is a real word, abbreviation, "
-        "or name -- not a leftover letter scrap.",
+        "name, or a mashup of two words with no space -- not a leftover letter scrap.",
         "The current candidate lists do not mesh. Propose up to 8 NEW "
         "candidates per slot that can form a consistent local fill. "
         "Prefer an answer that agrees with a crossing candidate already listed.",

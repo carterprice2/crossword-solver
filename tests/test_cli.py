@@ -140,6 +140,10 @@ class TestParser(unittest.TestCase):
         args = build_parser().parse_args(["eval", "--recipe", "screen-arms"])
         self.assertEqual(args.recipe, "screen-arms")
 
+    def test_models_smoke_parses(self):
+        args = build_parser().parse_args(["models", "smoke"])
+        self.assertEqual(args.action, "smoke")
+
     def test_unknown_command_exits(self):
         with self.assertRaises(SystemExit):
             build_parser().parse_args(["nonsense"])
@@ -312,6 +316,8 @@ class TestReportRendering(unittest.TestCase):
         text = summarize(payload)
         self.assertIn("## Results grid", text)
         self.assertIn("## Leaderboard", text)
+        self.assertIn("## Pick", text)
+        self.assertIn("**Use `a3`.**", text)
         header = "size | puzzle | model | arm | WCR | LCR | ICR | exact | tokens | USD | turns | calls | sec"
         # _table pads cells; the raw header labels still appear.
         for label in ("size", "puzzle", "model", "arm", "WCR", "LCR", "ICR",
@@ -333,6 +339,7 @@ class TestReportRendering(unittest.TestCase):
                 winners = json.load(fh)
         self.assertEqual(winners["ranking"], "wcr")
         self.assertEqual(winners["arms"][0], "a3")
+        self.assertEqual(winners["pick"], "a3")
         self.assertIn("Qwen/Qwen3-30B-A3B-Instruct-2507", winners["models"])
 
     def test_summarize_survives_no_records(self):

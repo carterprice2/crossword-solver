@@ -109,6 +109,7 @@ def winners_payload(stage: str, *, arms: list[str], models: list[str]) -> dict:
     return {
         "stage": stage,
         "ranking": "wcr",
+        "pick": arms[0] if arms else "",
         "arms": list(arms),
         "models": list(models),
     }

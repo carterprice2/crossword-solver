@@ -35,6 +35,7 @@ from ..ingest import (
 )
 from ..model import ACROSS, DOWN, Puzzle
 from ..run import (
+    ENSEMBLE_MODEL,
     RunError,
     annotate_candidate_event,
     cell_correctness,
@@ -58,6 +59,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 NO_KEY = "This host has no Token Factory key."
 ORACLE_NEEDS_GOLD = "Oracle needs a puzzle with an answer key. Use Nebius for uploads."
+WEB_ARMS = ("a2", "a3", "a4", "a5", "a6")
 
 
 class SolveRequest(BaseModel):
@@ -65,6 +67,7 @@ class SolveRequest(BaseModel):
     backend: str | None = None
     arm: str = "a3"
     model: str | None = None
+    ensemble_model: str | None = None
     seed: int = 7
     debug: bool = False
     oracle_recall: float = Field(default=0.8, ge=0.0, le=1.0)
@@ -79,6 +82,7 @@ class IngestRequest(BaseModel):
     xd: str | None = None
     arm: str = "a3"
     model: str | None = None
+    ensemble_model: str | None = None
     seed: int = 7
     debug: bool = False
 
@@ -89,6 +93,7 @@ class GridFixRequest(BaseModel):
     down: str | None = None
     arm: str = "a3"
     model: str | None = None
+    ensemble_model: str | None = None
     seed: int = 7
     debug: bool = False
 
@@ -168,11 +173,12 @@ def create_app(
             "model": DEFAULT_MODEL,
             "models": list(KNOWN_MODELS),
             "repair_model": DEFAULT_REASONING_MODEL,
+            "ensemble_model": ENSEMBLE_MODEL,
             "has_key": bool(os.environ.get("NEBIUS_API_KEY")),
             "arms": [
                 {"id": name, "label": arm.label, "description": arm.description}
                 for name, arm in arms.items()
-                if name in ("a2", "a3")
+                if name in WEB_ARMS
             ],
         }
 
@@ -353,6 +359,7 @@ def _ready_or_edit(app, store: JobStore, stored: StoredDraft, req, *, backend: s
         backend=backend,
         arm=getattr(req, "arm", "a3"),
         model=getattr(req, "model", None),
+        ensemble_model=getattr(req, "ensemble_model", None),
         seed=getattr(req, "seed", 7),
         debug=getattr(req, "debug", False),
     )
@@ -422,6 +429,7 @@ def _run_job(
             arm=req.arm,
             seed=req.seed,
             model=req.model or DEFAULT_MODEL,
+            ensemble_model=req.ensemble_model or ENSEMBLE_MODEL,
         )
         result, scores = run_solve(
             puzzle,

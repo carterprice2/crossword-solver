@@ -9,7 +9,7 @@ MODEL ?= Qwen/Qwen3-30B-A3B-Instruct-2507
 REPAIR_MODEL ?= Qwen/Qwen3-235B-A22B-Instruct-2507
 
 .PHONY: help test demo solve eval report sweep sweep-pattern corpus bank nyt models clean \
-	verify-offline verify-live-ping verify-live-smoke verify-live-pair verify-live-ablation \
+	verify-offline verify-live-ping verify-live-parse verify-live-smoke verify-live-pair verify-live-ablation \
 	serve serve-dev web-build screen-arms screen-models final-grid
 
 help:
@@ -28,6 +28,7 @@ help:
 	@echo "make serve-dev  API only; run Vite separately"
 	@echo "make verify-offline        tests (no network)"
 	@echo "make verify-live-ping      key + reachable models"
+	@echo "make verify-live-parse     one 2-clue parse smoke per catalog model"
 	@echo "make verify-live-smoke     one 7x7 live solve, recorded (cheap model)"
 	@echo "make verify-live-pair      a2 vs a3 on one 7x7, one seed"
 	@echo "make verify-live-ablation  a2 vs a3 on four 7x7s, repair model"
@@ -105,6 +106,9 @@ verify-offline:
 
 verify-live-ping:
 	$(PY) -m crossword models ping
+
+verify-live-parse:
+	$(PY) -m crossword models smoke
 
 verify-live-smoke:
 	mkdir -p results

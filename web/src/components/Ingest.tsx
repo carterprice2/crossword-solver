@@ -6,6 +6,7 @@ type Props = {
   busy: boolean
   arm: string
   model: string
+  ensembleModel: string
   debug: boolean
   onError: (message: string | null) => void
   onReady: (puzzle: PuzzleDetail, jobId: string) => void
@@ -21,7 +22,7 @@ function toggleCell(rows: string[], r: number, c: number): string[] {
   })
 }
 
-export function Ingest({ busy, arm, model, debug, onError, onReady }: Props) {
+export function Ingest({ busy, arm, model, ensembleModel, debug, onError, onReady }: Props) {
   const [across, setAcross] = useState('')
   const [down, setDown] = useState('')
   const [xd, setXd] = useState('')
@@ -53,9 +54,10 @@ export function Ingest({ busy, arm, model, debug, onError, onReady }: Props) {
     setSending(true)
     onError(null)
     try {
+      const extra = arm === 'a4' && ensembleModel ? { ensemble_model: ensembleModel } : {}
       const body = xd.trim()
-        ? { xd: xd.trim(), arm, model, debug }
-        : { image: image || undefined, across, down, arm, model, debug }
+        ? { xd: xd.trim(), arm, model, debug, ...extra }
+        : { image: image || undefined, across, down, arm, model, debug, ...extra }
       const result = await ingestPuzzle(body)
       handle(result)
     } catch (err) {
@@ -70,7 +72,14 @@ export function Ingest({ busy, arm, model, debug, onError, onReady }: Props) {
     setSending(true)
     onError(null)
     try {
-      const result = await fixIngestGrid(draft.draft_id, { rows: draft.rows, arm, model, debug })
+      const extra = arm === 'a4' && ensembleModel ? { ensemble_model: ensembleModel } : {}
+      const result = await fixIngestGrid(draft.draft_id, {
+        rows: draft.rows,
+        arm,
+        model,
+        debug,
+        ...extra,
+      })
       handle(result)
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err))

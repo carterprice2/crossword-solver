@@ -135,6 +135,16 @@ def cmd_solve(args) -> int:
 
 
 def cmd_eval(args) -> int:
+    from . import progress
+
+    if not getattr(args, "quiet", False):
+        progress.enable()
+        print(
+            "verbose: cell starts, rounds, HTTP tries, and 15s wait heartbeats "
+            "on stderr (--quiet to hide)",
+            file=sys.stderr,
+            flush=True,
+        )
     try:
         return _cmd_eval(args)
     except RecipeError as exc:
@@ -142,6 +152,8 @@ def cmd_eval(args) -> int:
         return 2
     except RunError as exc:
         raise SystemExit(str(exc)) from exc
+    finally:
+        progress.disable()
 
 
 def _cmd_eval(args) -> int:
@@ -303,11 +315,16 @@ def cmd_generate(args) -> int:
 
 
 def cmd_models(args) -> int:
+    timeout = args.timeout
+    if timeout is None:
+        timeout = 180.0 if args.action == "smoke" else 30.0
     try:
-        client = NebiusClient(base_url=args.base_url, timeout=args.timeout)
+        client = NebiusClient(base_url=args.base_url, timeout=timeout)
     except ModelError as exc:
         print(f"{exc}", file=sys.stderr)
         return 2
+    if args.action == "smoke":
+        return _cmd_models_smoke(client, args)
     try:
         available = client.list_models()
     except Exception as exc:
@@ -323,6 +340,35 @@ def cmd_models(args) -> int:
             f"\nnot reachable on this account: {', '.join(missing)}", file=sys.stderr
         )
     return 0
+
+
+def _cmd_models_smoke(client, args) -> int:
+    from . import progress
+    from .client import KNOWN_MODELS
+    from .eval.smoke import format_smoke_table, smoke_catalog
+
+    names = None
+    if args.models:
+        names = [part.strip() for part in args.models.split(",") if part.strip()]
+    try:
+        available = client.list_models()
+    except Exception as exc:
+        print(f"could not list models: {exc}", file=sys.stderr)
+        return 2
+    progress.enable()
+    planned = names or list(KNOWN_MODELS)
+    print(
+        f"parse smoke: two clues each, {len(planned)} model(s)",
+        file=sys.stderr,
+        flush=True,
+    )
+    try:
+        results = smoke_catalog(client, names, available=available)
+    finally:
+        progress.disable()
+    print(format_smoke_table(results))
+    failed = [row for row in results if not row.ok]
+    return 1 if failed else 0
 
 
 def cmd_serve(args) -> int:
@@ -443,6 +489,11 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--out", default="results")
     run.add_argument("--run-id")
     run.add_argument("--trace", action="store_true")
+    run.add_argument(
+        "--quiet",
+        action="store_true",
+        help="hide per-request progress on stderr",
+    )
     run.add_argument("--ensemble-model", default="meta-llama/Llama-3.3-70B-Instruct")
     run.add_argument("--record", help="record API calls for later replay")
     add_common(run)
@@ -463,9 +514,21 @@ def build_parser() -> argparse.ArgumentParser:
     generate.set_defaults(func=cmd_generate)
 
     models = sub.add_parser("models", help="check the API key and list models")
-    models.add_argument("action", nargs="?", default="ping", choices=("ping", "list"))
+    models.add_argument(
+        "action", nargs="?", default="ping", choices=("ping", "list", "smoke")
+    )
     models.add_argument("--base-url", default=DEFAULT_BASE_URL)
-    models.add_argument("--timeout", type=float, default=30.0)
+    models.add_argument(
+        "--timeout",
+        type=float,
+        default=None,
+        help="HTTP timeout; default 30s (ping) or 180s (smoke)",
+    )
+    models.add_argument(
+        "--models",
+        default=None,
+        help="comma list to smoke; default is KNOWN_MODELS",
+    )
     models.set_defaults(func=cmd_models)
 
     serve = sub.add_parser("serve", help="open the web UI")

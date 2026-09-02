@@ -117,6 +117,7 @@ class TestWinnersIo(unittest.TestCase):
             loaded = load_winners(tmp)
         self.assertEqual(loaded["stage"], "screen-arms")
         self.assertEqual(loaded["arms"], ["a3", "a5"])
+        self.assertEqual(loaded["pick"], "a3")
         self.assertEqual(loaded["ranking"], "wcr")
 
 

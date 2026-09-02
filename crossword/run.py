@@ -272,8 +272,14 @@ def solver_config(
     if chosen is None:
         raise RunError(f"unknown arm {arm!r}; choose from {', '.join(arms)}")
     config = chosen.config
-    config.model = model
-    config.repair_model = repair_model
+    # a5 is "the selected model at every stage"; do not keep the default
+    # repair model after build_arms has already wired both sides.
+    if chosen.name == "a5":
+        config.model = model
+        config.repair_model = model
+    else:
+        config.model = model
+        config.repair_model = repair_model
     config.seed = seed
     config.max_workers = workers
     if rounds:

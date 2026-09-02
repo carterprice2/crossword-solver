@@ -13,11 +13,12 @@ from typing import Mapping, Protocol
 RATES: dict[str, tuple[float, float]] = {
     "Qwen/Qwen3-30B-A3B-Instruct-2507": (0.10, 0.30),
     "Qwen/Qwen3-235B-A22B-Instruct-2507": (0.20, 0.60),
+    "Qwen/Qwen3.5-397B-A17B": (0.60, 3.60),
     "meta-llama/Llama-3.3-70B-Instruct": (0.13, 0.40),
     "openai/gpt-oss-120b": (0.15, 0.60),
     "deepseek-ai/DeepSeek-V4-Pro": (1.75, 3.50),
-    "moonshotai/Kimi-K2.6": (0.95, 4.00),
     "zai-org/GLM-5.2": (1.40, 4.40),
+    "MiniMaxAI/MiniMax-M3": (0.30, 1.20),
 }
 
 

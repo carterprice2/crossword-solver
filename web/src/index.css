@@ -121,9 +121,14 @@ select:focus-visible,
   min-width: 140px;
 }
 
-.field.wide select {
-  min-width: 200px;
+.field.arm select {
+  min-width: 220px;
   max-width: 280px;
+}
+
+.field.wide select {
+  min-width: 220px;
+  max-width: 320px;
 }
 
 .start {

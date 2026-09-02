@@ -45,3 +45,11 @@ class TestCostUsd(unittest.TestCase):
 
     def test_empty_usage_is_zero(self):
         self.assertEqual(cost_usd(Usage()), 0.0)
+
+    def test_flagship_models_have_rates(self):
+        for model in (
+            "Qwen/Qwen3.5-397B-A17B",
+            "zai-org/GLM-5.2",
+            "MiniMaxAI/MiniMax-M3",
+        ):
+            self.assertIn(model, RATES)

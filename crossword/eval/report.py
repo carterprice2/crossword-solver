@@ -144,6 +144,54 @@ def winners_from_payload(payload: dict) -> dict:
     )
 
 
+def _json_misses(records: list[dict]) -> int:
+    return sum(
+        1
+        for record in records
+        for warning in (record.get("solve") or {}).get("warnings") or []
+        if "no JSON object" in str(warning)
+    )
+
+
+def _pick_lines(
+    records: list[dict], arms: dict, rank_by: str
+) -> list[str]:
+    ranked = rank_keys(records, rank_by)
+    if not ranked:
+        return []
+    pick = ranked[0]
+    label = (arms.get(pick) or {}).get("label") or pick
+    lines = [
+        "## Pick",
+        "",
+        f"**Use `{pick}`.** It ranked first by WCR ({label}).",
+        "",
+    ]
+    by_name = defaultdict(list)
+    for record in _ok(records):
+        by_name[record[rank_by]].append(record)
+    for name in ranked:
+        group = by_name.get(name) or []
+        wcr = _mean([r["scores"]["wcr"] for r in group])
+        open_slots = _mean(
+            [len((r.get("solve") or {}).get("open_slots") or []) for r in group]
+        )
+        mark = " ← use this" if name == pick else ""
+        lines.append(
+            f"- `{name}` WCR {wcr:.3f}, open slots {open_slots:.0f}{mark}"
+        )
+    lines.append("")
+    misses = _json_misses(records)
+    if misses:
+        lines.append(
+            f"{misses} warning(s) were `no JSON object found in response`. "
+            "When the model returns no candidates, forcing a guess (a6) cannot "
+            "beat declining (a5) — there is nothing to guess from."
+        )
+        lines.append("")
+    return lines
+
+
 def summarize(payload: dict) -> str:
     records = payload["records"]
     arms = payload["arms"]
@@ -189,6 +237,7 @@ def summarize(payload: dict) -> str:
             lines.append("")
             lines.append("Ranked by mean WCR. Cost is a tie-break only.")
             lines.append("")
+            lines.extend(_pick_lines(records, arms, rank_by))
 
     # -- headline table ---------------------------------------------------
     lines.append("## Arms")

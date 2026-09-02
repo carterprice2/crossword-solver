@@ -24,6 +24,8 @@ from ..agent.constraints import SlotGraph
 from ..agent.prompts import whole_puzzle_messages
 from ..agent.solver import SolveResult, Solver, SolverConfig
 from ..agent.trace import Tracer
+from ..progress import enabled as progress_enabled
+from ..progress import log as progress_log
 from ..client import DEFAULT_MODEL, DEFAULT_REASONING_MODEL, ModelClient, Usage
 from ..model import Puzzle
 from ..normalize import classify_clue, length_bucket
@@ -223,6 +225,12 @@ def slot_records(puzzle: Puzzle, scores: Scores) -> list[dict]:
     return out
 
 
+def _stderr_trace(event) -> None:
+    if event.kind == "candidates":
+        return
+    progress_log(f"{event.kind}: {event.message}" if event.message else event.kind)
+
+
 def _arm_for_model(arm: Arm, model: str) -> Arm:
     if arm.name == "a5":
         config = replace(arm.config, model=model, repair_model=model)
@@ -332,15 +340,28 @@ class Harness:
                                 }
                                 record_dicts.append(rec)
                                 per_slot.extend(existing.get("slot_records") or [])
+                                progress_log(
+                                    f"skip {puzzle.id} {arm_name} {cell_model} "
+                                    f"(already in cells.jsonl)"
+                                )
                                 continue
 
                             live_arm = _arm_for_model(stock, cell_model)
                             prefill = prefill_cells(puzzle, ratio, seed=seed)
                             config = replace(live_arm.config, seed=seed)
+                            listeners = []
+                            if progress_enabled():
+                                listeners.append(_stderr_trace)
                             tracer = Tracer(
                                 os.path.join(directory, "trace.jsonl")
                                 if self.trace
-                                else None
+                                else None,
+                                listeners=listeners,
+                            )
+                            progress_log(
+                                f"start {puzzle.id} {arm_name} {cell_model} "
+                                f"seed={seed} max_rounds={config.max_rounds} "
+                                f"workers={config.max_workers}"
                             )
                             started = time.monotonic()
                             error = None
