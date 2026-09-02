@@ -162,26 +162,30 @@ def solve_one_shot(
 
 @dataclass
 class RunRecord:
-    """One (puzzle, arm, seed) result."""
+    """One (puzzle, model, arm, seed) result."""
 
     puzzle_id: str
     arm: str
     seed: int
     prefill: float
-    scores: Scores
+    scores: Scores | None
     solve: SolveResult
     strata: dict[str, object] = field(default_factory=dict)
+    model: str = ""
+    error: str | None = None
 
     def as_dict(self) -> dict:
         return {
             "puzzle_id": self.puzzle_id,
+            "model": self.model,
             "arm": self.arm,
             "seed": self.seed,
             "prefill": self.prefill,
             "strata": self.strata,
-            "scores": self.scores.as_dict(),
+            "scores": None if self.scores is None else self.scores.as_dict(),
             "solve": self.solve.as_dict(),
-            "per_slot": self.scores.per_slot,
+            "error": self.error,
+            "per_slot": {} if self.scores is None else self.scores.per_slot,
         }
 
 
@@ -219,6 +223,45 @@ def slot_records(puzzle: Puzzle, scores: Scores) -> list[dict]:
     return out
 
 
+def _arm_for_model(arm: Arm, model: str) -> Arm:
+    if arm.name == "a5":
+        config = replace(arm.config, model=model, repair_model=model)
+    else:
+        config = replace(arm.config, model=model)
+    return replace(arm, config=config)
+
+
+def _cell_key(record: dict) -> tuple:
+    return (
+        record["puzzle_id"],
+        record.get("model") or "",
+        record["arm"],
+        int(record["seed"]),
+        float(record.get("prefill") or 0.0),
+    )
+
+
+def _load_cells(path: str) -> dict[tuple, dict]:
+    found: dict[tuple, dict] = {}
+    if not os.path.isfile(path):
+        return found
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            payload = json.loads(line)
+            found[_cell_key(payload)] = payload
+    return found
+
+
+def _append_cell(path: str, record: RunRecord, slots: list[dict]) -> None:
+    payload = record.as_dict()
+    payload["slot_records"] = slots
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload) + "\n")
+
+
 class Harness:
     """Runs the arm x puzzle x seed matrix and writes a results directory."""
 
@@ -244,61 +287,127 @@ class Harness:
         prefill_ratios: list[float] | None = None,
         run_id: str | None = None,
         progress=None,
+        models: list[str] | None = None,
+        retry_errors: bool = False,
+        stage: str = "",
+        carry_arms: list[str] | None = None,
+        rank_by: str = "arm",
     ) -> dict:
         seeds = seeds or [0]
         prefill_ratios = prefill_ratios or [0.0]
         run_id = run_id or time.strftime("run-%Y%m%d-%H%M%S")
         directory = os.path.join(self.out_dir, run_id)
         os.makedirs(directory, exist_ok=True)
+        jsonl_path = os.path.join(directory, "cells.jsonl")
+        prior = _load_cells(jsonl_path)
+        model_axis = list(models) if models else [None]
 
-        records: list[RunRecord] = []
+        record_dicts: list[dict] = []
+        live_records: list[RunRecord] = []
         per_slot: list[dict] = []
+
         for puzzle in puzzles:
             strata = puzzle_strata(puzzle)
             for arm_name in arm_names:
-                arm = self.arms[arm_name]
+                stock = self.arms[arm_name]
                 for seed in seeds:
                     for ratio in prefill_ratios:
-                        prefill = prefill_cells(puzzle, ratio, seed=seed)
-                        config = replace(arm.config, seed=seed)
-                        client = self.client_factory(puzzle, arm, seed)
-                        tracer = Tracer(
-                            os.path.join(directory, "trace.jsonl")
-                            if self.trace
-                            else None
-                        )
-                        if arm.one_shot:
-                            solved = solve_one_shot(
-                                client, puzzle, config, prefill=prefill
+                        for model in model_axis:
+                            cell_model = model or stock.config.model
+                            key = (
+                                puzzle.id,
+                                cell_model,
+                                arm_name,
+                                seed,
+                                float(ratio),
                             )
-                        else:
-                            solved = Solver(client, config, tracer=tracer).solve(
-                                puzzle, prefill=prefill
+                            existing = prior.get(key)
+                            if existing and not (
+                                retry_errors and existing.get("error")
+                            ):
+                                rec = {
+                                    k: v
+                                    for k, v in existing.items()
+                                    if k != "slot_records"
+                                }
+                                record_dicts.append(rec)
+                                per_slot.extend(existing.get("slot_records") or [])
+                                continue
+
+                            live_arm = _arm_for_model(stock, cell_model)
+                            prefill = prefill_cells(puzzle, ratio, seed=seed)
+                            config = replace(live_arm.config, seed=seed)
+                            tracer = Tracer(
+                                os.path.join(directory, "trace.jsonl")
+                                if self.trace
+                                else None
                             )
-                        scores = score_solution(
-                            puzzle, solved.solution, assignment=solved.assignment
-                        )
-                        record = RunRecord(
-                            puzzle_id=puzzle.id,
-                            arm=arm_name,
-                            seed=seed,
-                            prefill=ratio,
-                            scores=scores,
-                            solve=solved,
-                            strata=strata,
-                        )
-                        records.append(record)
-                        for row in slot_records(puzzle, scores):
-                            row.update(
-                                {"puzzle_id": puzzle.id, "arm": arm_name, "seed": seed}
+                            started = time.monotonic()
+                            error = None
+                            try:
+                                client = self.client_factory(puzzle, live_arm, seed)
+                                if live_arm.one_shot:
+                                    solved = solve_one_shot(
+                                        client, puzzle, config, prefill=prefill
+                                    )
+                                else:
+                                    solved = Solver(
+                                        client, config, tracer=tracer
+                                    ).solve(puzzle, prefill=prefill)
+                                scores = score_solution(
+                                    puzzle,
+                                    solved.solution,
+                                    assignment=solved.assignment,
+                                )
+                            except Exception as exc:
+                                error = str(exc)
+                                solved = SolveResult(
+                                    puzzle=puzzle,
+                                    solution={},
+                                    seconds=time.monotonic() - started,
+                                    warnings=[error],
+                                )
+                                scores = None
+
+                            record = RunRecord(
+                                puzzle_id=puzzle.id,
+                                arm=arm_name,
+                                seed=seed,
+                                prefill=ratio,
+                                scores=scores,
+                                solve=solved,
+                                strata=strata,
+                                model=cell_model,
+                                error=error,
                             )
-                            per_slot.append(row)
-                        if progress:
-                            progress(record)
+                            slots = []
+                            if scores is not None:
+                                for row in slot_records(puzzle, scores):
+                                    row.update(
+                                        {
+                                            "puzzle_id": puzzle.id,
+                                            "arm": arm_name,
+                                            "seed": seed,
+                                            "model": cell_model,
+                                        }
+                                    )
+                                    slots.append(row)
+                            _append_cell(jsonl_path, record, slots)
+                            record_dicts.append(record.as_dict())
+                            live_records.append(record)
+                            per_slot.extend(slots)
+                            if progress:
+                                progress(record)
 
         payload = {
             "run_id": run_id,
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "stage": stage,
+            "rank_by": rank_by,
+            "carry_arms": list(carry_arms or []),
+            "models": [m for m in model_axis if m] or sorted(
+                {r.get("model") for r in record_dicts if r.get("model")}
+            ),
             "arms": {
                 name: {
                     "label": self.arms[name].label,
@@ -318,12 +427,12 @@ class Harness:
             "puzzles": [
                 {"id": p.id, **puzzle_strata(p)} for p in puzzles
             ],
-            "records": [r.as_dict() for r in records],
+            "records": record_dicts,
             "calibration": {
                 arm: calibration(
                     [
                         pair
-                        for r in records
+                        for r in live_records
                         if r.arm == arm
                         for pair in r.solve.calibration_pairs
                     ]

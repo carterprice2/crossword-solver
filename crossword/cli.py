@@ -29,6 +29,7 @@ from .client import (
     load_env_file,
 )
 from .eval.harness import Harness, build_arms
+from .eval.recipes import RecipeError, expand_recipe, load_winners
 from .eval.report import write_summary
 from .run import (
     HERE,
@@ -135,25 +136,87 @@ def cmd_solve(args) -> int:
 
 def cmd_eval(args) -> int:
     try:
-        paths = suite_paths(args.suite)
+        return _cmd_eval(args)
+    except RecipeError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     except RunError as exc:
         raise SystemExit(str(exc)) from exc
-    puzzles = load_puzzles(paths, args.limit)
+
+
+def _cmd_eval(args) -> int:
+    winners = None
+    from_run = getattr(args, "from_run", None)
+    if from_run:
+        winners = load_winners(from_run)
+
+    models_flag = getattr(args, "models", None)
+    arms_flag = args.arms
+    puzzles_flag = getattr(args, "puzzles", None)
+    recipe = getattr(args, "recipe", None)
+
+    if recipe:
+        spec = expand_recipe(
+            recipe,
+            models=models_flag,
+            arms=arms_flag,
+            puzzle_ids=puzzles_flag,
+            winners=winners,
+        )
+        arm_names = spec.arms
+        models = spec.models
+        puzzle_ids = spec.puzzle_ids
+        stage = spec.stage
+        rank_by = {
+            "screen-arms": "arm",
+            "screen-models": "model",
+            "final-grid": "pair",
+        }.get(stage, "arm")
+        carry_arms = list((winners or {}).get("arms") or [])
+    else:
+        arm_names = [
+            a.strip()
+            for a in (arms_flag or "a0,a1,a2,a3").split(",")
+            if a.strip()
+        ]
+        if models_flag:
+            models = [m.strip() for m in models_flag.split(",") if m.strip()]
+        else:
+            models = [args.model]
+        puzzle_ids = [
+            p.strip() for p in (puzzles_flag or "").split(",") if p.strip()
+        ]
+        stage = ""
+        rank_by = "arm"
+        carry_arms = list((winners or {}).get("arms") or [])
+
+    paths = suite_paths(args.suite)
+    puzzles = load_puzzles(paths, 0 if puzzle_ids else args.limit)
+    if puzzle_ids:
+        by_id = {p.id: p for p in puzzles}
+        missing = [pid for pid in puzzle_ids if pid not in by_id]
+        if missing:
+            raise SystemExit(f"unknown puzzle id(s): {', '.join(missing)}")
+        puzzles = [by_id[pid] for pid in puzzle_ids]
     if not puzzles:
         raise SystemExit(f"no puzzles in suite {args.suite!r}")
-    arm_names = [a.strip() for a in args.arms.split(",") if a.strip()]
+
     arms = build_arms(args.model, args.repair_model, args.ensemble_model)
     for name in arm_names:
         if name not in arms:
             raise SystemExit(f"unknown arm {name!r}; choose from {', '.join(arms)}")
 
-    seeds = [int(s) for s in str(args.seeds).split(",")] if "," in str(args.seeds) else list(range(int(args.seeds)))
+    seeds = (
+        [int(s) for s in str(args.seeds).split(",")]
+        if "," in str(args.seeds)
+        else list(range(int(args.seeds)))
+    )
     ratios = [float(r) for r in str(args.prefill).split(",")]
 
-    total = len(puzzles) * len(arm_names) * len(seeds) * len(ratios)
+    total = len(puzzles) * len(arm_names) * len(seeds) * len(ratios) * len(models)
     print(
-        f"{len(puzzles)} puzzles x {len(arm_names)} arms x {len(seeds)} seed(s) "
-        f"x {len(ratios)} prefill = {total} solves",
+        f"{len(puzzles)} puzzles x {len(arm_names)} arms x {len(models)} model(s) "
+        f"x {len(seeds)} seed(s) x {len(ratios)} prefill = {total} solves",
         file=sys.stderr,
     )
     if args.backend == "nebius":
@@ -166,9 +229,14 @@ def cmd_eval(args) -> int:
 
     def progress(record):
         done["n"] += 1
+        wcr = (
+            "err"
+            if record.scores is None
+            else f"{record.scores.wcr:.3f}"
+        )
         print(
-            f"  [{done['n']}/{total}] {record.puzzle_id} {record.arm} "
-            f"seed={record.seed} WCR={record.scores.wcr:.3f}",
+            f"  [{done['n']}/{total}] {record.puzzle_id} {record.model} "
+            f"{record.arm} seed={record.seed} WCR={wcr}",
             file=sys.stderr,
         )
 
@@ -178,8 +246,17 @@ def cmd_eval(args) -> int:
 
     harness = Harness(factory, arms, out_dir=args.out, trace=args.trace)
     payload = harness.run(
-        puzzles, arm_names, seeds=seeds, prefill_ratios=ratios,
-        run_id=args.run_id, progress=progress,
+        puzzles,
+        arm_names,
+        seeds=seeds,
+        prefill_ratios=ratios,
+        run_id=args.run_id,
+        progress=progress,
+        models=models,
+        retry_errors=getattr(args, "retry_errors", False),
+        stage=stage,
+        carry_arms=carry_arms,
+        rank_by=rank_by,
     )
     directory = os.path.join(args.out, payload["run_id"])
     path = write_summary(directory)
@@ -342,7 +419,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = sub.add_parser("eval", help="run the arm x puzzle matrix")
     run.add_argument("--suite", default="mini")
-    run.add_argument("--arms", default="a0,a1,a2,a3")
+    run.add_argument("--arms", default=None, help="comma list; default a0,a1,a2,a3")
+    run.add_argument("--models", default=None, help="comma list; default is --model")
+    run.add_argument("--puzzles", default=None, help="comma list of puzzle ids")
+    run.add_argument(
+        "--recipe",
+        choices=("screen-arms", "screen-models", "final-grid"),
+        help="named tournament stage",
+    )
+    run.add_argument(
+        "--from",
+        dest="from_run",
+        help="prior run directory (reads winners.json)",
+    )
+    run.add_argument(
+        "--retry-errors",
+        action="store_true",
+        help="re-run cells whose jsonl line has error set",
+    )
     run.add_argument("--seeds", default="1", help="count, or a comma list")
     run.add_argument("--prefill", default="0.0", help="comma list of ratios")
     run.add_argument("--limit", type=int, default=0)

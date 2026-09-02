@@ -10,13 +10,14 @@ REPAIR_MODEL ?= Qwen/Qwen3-235B-A22B-Instruct-2507
 
 .PHONY: help test demo solve eval report sweep sweep-pattern corpus bank nyt models clean \
 	verify-offline verify-live-ping verify-live-smoke verify-live-pair verify-live-ablation \
-	serve serve-dev web-build
+	serve serve-dev web-build screen-arms screen-models final-grid
 
 help:
 	@echo "make test     run the test suite          (no network, no install)"
 	@echo "make demo     watch a solve, offline      (no network, no install)"
 	@echo "make solve    solve one puzzle on Nebius  (needs NEBIUS_API_KEY)"
 	@echo "make eval     run the ablation matrix     (needs NEBIUS_API_KEY)"
+	@echo "make screen-arms / screen-models / final-grid   staged live tournament"
 	@echo "make sweep    regenerate the offline oracle sweep"
 	@echo "make report   rebuild summary.md from a results dir (DIR=...)"
 	@echo "make corpus   regenerate the committed puzzles"
@@ -51,6 +52,21 @@ eval:
 # The same matrix against synthetic candidates: no key, no spend.
 eval-offline:
 	$(PY) -m crossword eval --suite $(SUITE) --arms $(ARMS) --backend oracle
+
+# Pause-gated live tournament. After each stage, edit winners.json then run the next.
+screen-arms:
+	$(PY) -m crossword eval --recipe screen-arms \
+		--model $(MODEL) --repair-model $(REPAIR_MODEL)
+
+screen-models:
+	@test -n "$(FROM)" || (echo "usage: make screen-models FROM=results/run-..." && exit 1)
+	$(PY) -m crossword eval --recipe screen-models --from $(FROM) \
+		--model $(MODEL) --repair-model $(REPAIR_MODEL)
+
+final-grid:
+	@test -n "$(FROM)" || (echo "usage: make final-grid FROM=results/run-..." && exit 1)
+	$(PY) -m crossword eval --recipe final-grid --from $(FROM) \
+		--model $(MODEL) --repair-model $(REPAIR_MODEL)
 
 sweep:
 	$(PY) scripts/oracle_sweep.py --independent --out results/synthetic-sweep.json

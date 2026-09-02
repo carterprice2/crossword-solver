@@ -600,7 +600,7 @@ class Usage:
     calls: int = 0
     prompt_tokens: int = 0
     completion_tokens: int = 0
-    by_model: dict[str, int] = field(default_factory=dict)
+    by_model: dict[str, dict[str, int]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def record(self, completion: Completion) -> None:
@@ -608,9 +608,11 @@ class Usage:
             self.calls += 1
             self.prompt_tokens += completion.prompt_tokens
             self.completion_tokens += completion.completion_tokens
-            self.by_model[completion.model] = (
-                self.by_model.get(completion.model, 0) + completion.total_tokens
+            bucket = self.by_model.setdefault(
+                completion.model, {"prompt": 0, "completion": 0}
             )
+            bucket["prompt"] += completion.prompt_tokens
+            bucket["completion"] += completion.completion_tokens
 
     @property
     def total_tokens(self) -> int:

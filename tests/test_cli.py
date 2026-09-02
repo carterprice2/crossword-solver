@@ -41,6 +41,84 @@ def a_puzzle_path():
     return paths[0] if paths else None
 
 
+def _grid_payload():
+    qwen = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+    return {
+        "run_id": "grid",
+        "generated_at": "now",
+        "stage": "screen-arms",
+        "rank_by": "arm",
+        "arms": {
+            "a3": {
+                "label": "full",
+                "description": "",
+                "model": qwen,
+                "repair_model": qwen,
+                "ensemble_model": "",
+                "max_rounds": 3,
+                "use_constraints": True,
+                "use_repair": True,
+                "unknown_mass": 0.15,
+            },
+            "a1": {
+                "label": "per-clue",
+                "description": "",
+                "model": qwen,
+                "repair_model": qwen,
+                "ensemble_model": "",
+                "max_rounds": 1,
+                "use_constraints": False,
+                "use_repair": False,
+                "unknown_mass": 0.15,
+            },
+        },
+        "models": [qwen],
+        "seeds": [0],
+        "prefill_ratios": [0.0],
+        "puzzles": [{"id": "mini-07-00-0", "size": "7x7"}],
+        "records": [
+            {
+                "puzzle_id": "mini-07-00-0",
+                "model": qwen,
+                "arm": "a3",
+                "seed": 0,
+                "prefill": 0.0,
+                "strata": {"size": "7x7", "provenance": "generated"},
+                "scores": {
+                    "wcr": 0.8, "lcr": 0.9, "icr": 1.0, "exact": False,
+                    "cell_precision": 0.9, "cell_recall": 0.9,
+                },
+                "solve": {
+                    "rounds": 3, "calls": 8,
+                    "prompt_tokens": 1_000_000, "completion_tokens": 1_000_000,
+                    "cost_usd": 0.4, "seconds": 12.0,
+                    "open_slots": [], "rungs": {}, "error": None,
+                },
+                "per_slot": {},
+            },
+            {
+                "puzzle_id": "mini-07-00-0",
+                "model": qwen,
+                "arm": "a1",
+                "seed": 0,
+                "prefill": 0.0,
+                "strata": {"size": "7x7", "provenance": "generated"},
+                "scores": None,
+                "error": "boom",
+                "solve": {
+                    "rounds": 0, "calls": 0,
+                    "prompt_tokens": 0, "completion_tokens": 0,
+                    "cost_usd": None, "seconds": 0.1,
+                    "open_slots": [], "rungs": {}, "error": "boom",
+                },
+                "per_slot": {},
+            },
+        ],
+        "calibration": {},
+        "slot_records": [],
+    }
+
+
 class TestParser(unittest.TestCase):
     def test_solve_defaults(self):
         args = build_parser().parse_args(["solve", "p.xd"])
@@ -57,6 +135,10 @@ class TestParser(unittest.TestCase):
     def test_eval_arms_parse(self):
         args = build_parser().parse_args(["eval", "--arms", "a0,a3"])
         self.assertEqual(args.arms, "a0,a3")
+
+    def test_eval_recipe_parses(self):
+        args = build_parser().parse_args(["eval", "--recipe", "screen-arms"])
+        self.assertEqual(args.recipe, "screen-arms")
 
     def test_unknown_command_exits(self):
         with self.assertRaises(SystemExit):
@@ -155,6 +237,38 @@ class TestEvalOffline(unittest.TestCase):
                 payload = json.load(fh)
             self.assertEqual(len(payload["records"]), 4)  # 2 puzzles x 2 arms
 
+    def test_screen_models_without_from_exits_2(self):
+        code = main(
+            ["eval", "--recipe", "screen-models", "--backend", "oracle", "--out", "/tmp"]
+        )
+        self.assertEqual(code, 2)
+
+    def test_screen_arms_oracle_writes_grid_and_winners(self):
+        if not a_puzzle_path():
+            self.skipTest("corpus not generated")
+        with tempfile.TemporaryDirectory() as tmp:
+            stdout, stderr = io.StringIO(), io.StringIO()
+            saved = sys.stdout, sys.stderr
+            sys.stdout, sys.stderr = stdout, stderr
+            try:
+                code = main(
+                    [
+                        "eval", "--recipe", "screen-arms", "--backend", "oracle",
+                        "--out", tmp, "--run-id", "screen", "--arms", "a1,a3",
+                    ]
+                )
+            finally:
+                sys.stdout, sys.stderr = saved
+            self.assertEqual(code, 0)
+            directory = os.path.join(tmp, "screen")
+            self.assertTrue(os.path.isfile(os.path.join(directory, "winners.json")))
+            text = open(os.path.join(directory, "summary.md")).read()
+            self.assertIn("## Results grid", text)
+            with open(os.path.join(directory, "winners.json")) as fh:
+                winners = json.load(fh)
+            self.assertEqual(winners["stage"], "screen-arms")
+            self.assertTrue(winners["arms"])
+
 
 class TestReportRendering(unittest.TestCase):
     def test_summarize_handles_a_minimal_payload(self):
@@ -192,6 +306,34 @@ class TestReportRendering(unittest.TestCase):
         self.assertIn("WCR", text)
         self.assertIn("Exact-solve", text)
         self.assertIn("strict_schema", text)
+
+    def test_summarize_includes_results_grid(self):
+        payload = _grid_payload()
+        text = summarize(payload)
+        self.assertIn("## Results grid", text)
+        self.assertIn("## Leaderboard", text)
+        header = "size | puzzle | model | arm | WCR | LCR | ICR | exact | tokens | USD | turns | calls | sec"
+        # _table pads cells; the raw header labels still appear.
+        for label in ("size", "puzzle", "model", "arm", "WCR", "LCR", "ICR",
+                      "exact", "tokens", "USD", "turns", "calls", "sec"):
+            self.assertIn(label, text.split("## Results grid", 1)[1].split("## Leaderboard")[0])
+        self.assertIn("0.400", text)  # cost_usd
+        self.assertIn("err", text)    # failed cell
+
+    def test_write_summary_writes_winners(self):
+        from crossword.eval.report import write_summary
+
+        payload = _grid_payload()
+        payload["stage"] = "screen-arms"
+        with tempfile.TemporaryDirectory() as tmp:
+            with open(os.path.join(tmp, "results.json"), "w") as fh:
+                json.dump(payload, fh)
+            write_summary(tmp)
+            with open(os.path.join(tmp, "winners.json")) as fh:
+                winners = json.load(fh)
+        self.assertEqual(winners["ranking"], "wcr")
+        self.assertEqual(winners["arms"][0], "a3")
+        self.assertIn("Qwen/Qwen3-30B-A3B-Instruct-2507", winners["models"])
 
     def test_summarize_survives_no_records(self):
         payload = {
