@@ -44,8 +44,25 @@ class TestApi(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["model"], DEFAULT_MODEL)
+        self.assertEqual(
+            body["models"],
+            [
+                "Qwen/Qwen3-30B-A3B-Instruct-2507",
+                "Qwen/Qwen3-235B-A22B-Instruct-2507",
+                "Qwen/Qwen3.5-397B-A17B",
+                "meta-llama/Llama-3.3-70B-Instruct",
+                "openai/gpt-oss-120b",
+                "deepseek-ai/DeepSeek-V4-Pro",
+                "zai-org/GLM-5.2",
+                "MiniMaxAI/MiniMax-M3",
+            ],
+        )
         self.assertEqual(body["models"], list(KNOWN_MODELS))
-        self.assertTrue(body["models"])
+        self.assertEqual(body["ensemble_model"], "meta-llama/Llama-3.3-70B-Instruct")
+        self.assertEqual(
+            [arm["id"] for arm in body["arms"]],
+            ["a2", "a3", "a4", "a5", "a6"],
+        )
 
     def test_puzzle_payload_strips_gold(self):
         response = self.client.get("/api/puzzles/mini-07-00-0")

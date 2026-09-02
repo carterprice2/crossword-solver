@@ -68,6 +68,18 @@ dev` in another (Vite on :5173 proxies `/api` to :8000).
 To put the page on a Nebius CPU VM in front of Token Factory, see
 [docs/hosting.md](docs/hosting.md).
 
+### Live tournament
+
+Pause after each stage and edit `winners.json` (top 3 by WCR) before the next:
+
+```bash
+make screen-arms                             # 7 arms, one 7×7
+make screen-models FROM=results/<run>        # 7 models, best arm, one 7×7
+make final-grid FROM=results/<run>           # top 3 × top 3 × 7/9/11
+```
+
+Each run writes `results/<run>/summary.md` (the metric grid) and `winners.json`.
+
 Live verification is staged so a cheap check happens before a token-heavy one:
 
 ```bash
@@ -285,6 +297,9 @@ optional `[web]` extra (`fastapi`, `uvicorn`) so `make test` stays zero-install.
 ```bash
 python3 -m crossword solve PUZZLE.xd [--live] [--arm a3] [--prefill 0.25]
 python3 -m crossword eval --suite mini --arms a0,a1,a2,a3 [--seeds 3]
+python3 -m crossword eval --recipe screen-arms          # stage 1, then edit winners.json
+python3 -m crossword eval --recipe screen-models --from results/run-...
+python3 -m crossword eval --recipe final-grid --from results/run-...
 python3 -m crossword eval --suite nyt --arms a3   # after scripts/write_nyt_2021_05_28.py
 python3 -m crossword report results/run-.../
 python3 -m crossword generate --size 9 --seed 3

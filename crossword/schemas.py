@@ -190,6 +190,21 @@ def extract_json(text: str) -> dict | None:
     return None
 
 
+def looks_like_candidates(text: str) -> bool:
+    """True when the blob contains the candidate JSON we asked for.
+
+    HTTP 200 on a json_schema request is not enough: thinking models often
+    fill the token budget with prose and never emit an object. The ladder
+    uses this to decide whether to bump max_tokens or drop to a weaker rung.
+    """
+    payload = extract_json(text)
+    if not payload:
+        return False
+    if isinstance(payload.get("items"), list):
+        return True
+    return bool(payload) and all(isinstance(value, str) for value in payload.values())
+
+
 @dataclass(frozen=True)
 class Candidate:
     """One proposed answer for one slot."""

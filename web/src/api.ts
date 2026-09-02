@@ -40,6 +40,7 @@ export async function startSolve(body: {
   backend: string
   arm: string
   model?: string
+  ensemble_model?: string
   debug?: boolean
 }): Promise<{ job_id: string; backend: string; arm: string; model: string; debug: boolean }> {
   const response = await fetch('/api/solves', {
@@ -79,6 +80,7 @@ export function ingestPuzzle(body: {
   xd?: string
   arm?: string
   model?: string
+  ensemble_model?: string
   debug?: boolean
 }): Promise<IngestResponse> {
   return postJson('/api/ingest', body)
@@ -86,7 +88,15 @@ export function ingestPuzzle(body: {
 
 export function fixIngestGrid(
   draftId: string,
-  body: { rows: string[]; across?: string; down?: string; arm?: string; model?: string; debug?: boolean },
+  body: {
+    rows: string[]
+    across?: string
+    down?: string
+    arm?: string
+    model?: string
+    ensemble_model?: string
+    debug?: boolean
+  },
 ): Promise<IngestResponse> {
   return postJson(`/api/ingest/${encodeURIComponent(draftId)}/grid`, body)
 }

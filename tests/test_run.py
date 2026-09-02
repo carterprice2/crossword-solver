@@ -85,6 +85,31 @@ class TestRunSolve(unittest.TestCase):
         self.assertGreater(scores.wcr, 0)
         self.assertGreaterEqual(result.rounds, 1)
 
+    def test_a5_uses_selected_model_for_repair(self):
+        from crossword.run import solver_config
+
+        _, config = solver_config(arm="a5", model="picked", repair_model="ignored")
+        self.assertEqual(config.model, "picked")
+        self.assertEqual(config.repair_model, "picked")
+
+    def test_a4_keeps_ensemble_model(self):
+        from crossword.run import solver_config
+
+        _, config = solver_config(
+            arm="a4", model="primary", ensemble_model="second"
+        )
+        self.assertEqual(config.model, "primary")
+        self.assertEqual(config.ensemble_model, "second")
+        self.assertTrue(config.use_repair)
+
+    def test_a6_turns_off_wildcard(self):
+        from crossword.run import solver_config
+
+        _, a3 = solver_config(arm="a3")
+        _, a6 = solver_config(arm="a6")
+        self.assertGreater(a3.unknown_mass, a6.unknown_mass)
+        self.assertLess(a6.unknown_mass, 1e-6)
+
 
 class TestCellCorrectness(unittest.TestCase):
     def test_marks_wrong_cells_without_revealing_gold_letter(self):

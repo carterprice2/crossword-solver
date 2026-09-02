@@ -26,6 +26,7 @@ import time
 from dataclasses import dataclass, field
 
 from ..client import ModelClient, Usage
+from ..eval.pricing import cost_usd
 from ..model import Cell, Puzzle, Solution
 from ..schemas import Candidate, merge_candidates
 from . import prompts
@@ -125,6 +126,7 @@ class SolveResult:
     rungs: dict[str, str] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
+        usd = cost_usd(self.usage)
         return {
             "rounds": self.rounds,
             "icr": round(self.icr, 6),
@@ -133,6 +135,7 @@ class SolveResult:
             "calls": self.usage.calls,
             "prompt_tokens": self.usage.prompt_tokens,
             "completion_tokens": self.usage.completion_tokens,
+            "cost_usd": None if usd is None else round(usd, 6),
             "rungs": self.rungs,
             "warnings": self.warnings[:10],
         }

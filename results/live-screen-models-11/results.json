@@ -1,0 +1,636 @@
+{
+  "run_id": "live-screen-models-11",
+  "generated_at": "2026-09-02T06:58:57Z",
+  "stage": "screen-models",
+  "rank_by": "model",
+  "carry_arms": [],
+  "models": [
+    "MiniMaxAI/MiniMax-M3"
+  ],
+  "arms": {
+    "a5": {
+      "label": "reasoning model throughout",
+      "description": "A3 with the large reasoning model at every stage. The cost ceiling.",
+      "model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "repair_model": "Qwen/Qwen3-235B-A22B-Instruct-2507",
+      "ensemble_model": "",
+      "max_rounds": 5,
+      "use_constraints": true,
+      "use_repair": true,
+      "unknown_mass": 0.15
+    }
+  },
+  "seeds": [
+    0
+  ],
+  "prefill_ratios": [
+    0.0
+  ],
+  "puzzles": [
+    {
+      "id": "mini-11-04-0",
+      "size": "11x11",
+      "slots": 42,
+      "block_density": 0.2314,
+      "mean_answer_length": 4.43,
+      "clue_types": {
+        "definition": 31,
+        "proper": 11
+      },
+      "provenance": "generated",
+      "date": ""
+    }
+  ],
+  "records": [
+    {
+      "puzzle_id": "mini-11-04-0",
+      "model": "MiniMaxAI/MiniMax-M3",
+      "arm": "a5",
+      "seed": 0,
+      "prefill": 0.0,
+      "strata": {
+        "size": "11x11",
+        "slots": 42,
+        "block_density": 0.2314,
+        "mean_answer_length": 4.43,
+        "clue_types": {
+          "definition": 31,
+          "proper": 11
+        },
+        "provenance": "generated",
+        "date": ""
+      },
+      "scores": {
+        "wcr": 1.0,
+        "lcr": 1.0,
+        "icr": 1.0,
+        "exact": true,
+        "cell_precision": 1.0,
+        "cell_recall": 1.0,
+        "cells_filled": 93,
+        "cells_correct": 93,
+        "cells_total": 93,
+        "slots_correct": 42,
+        "slots_attempted": 42,
+        "slots_total": 42
+      },
+      "solve": {
+        "rounds": 5,
+        "icr": 1.0,
+        "open_slots": [],
+        "seconds": 18.61,
+        "calls": 15,
+        "prompt_tokens": 18324,
+        "completion_tokens": 4927,
+        "cost_usd": 0.01141,
+        "rungs": {
+          "MiniMaxAI/MiniMax-M3": "strict_schema"
+        },
+        "warnings": [
+          "no usable candidate for 13 slot(s): ['A10', 'A13', 'A15', 'A18', 'A20', 'D1']",
+          "A5: 'EFREET' does not fit (5 cells, pattern ?????)",
+          "A5: 'OGRE' does not fit (5 cells, pattern ?????)",
+          "no usable candidate for 13 slot(s): ['A27', 'A28', 'A31', 'A35', 'A37', 'D22']",
+          "A36: 'CLAP' does not fit (5 cells, pattern ?????)",
+          "A36: 'RATTLE' does not fit (5 cells, pattern ?????)",
+          "A10: 'BATH' does not fit (5 cells, pattern ?????)",
+          "A13: 'LINEUP' does not fit (5 cells, pattern ?????)",
+          "no usable candidate for 7 slot(s): ['A27', 'A31', 'A35', 'A37', 'D23', 'D24']",
+          "A31: 'BUBO' does not fit (5 cells, pattern ?????)"
+        ]
+      },
+      "error": null,
+      "per_slot": {
+        "A1": true,
+        "A5": true,
+        "A10": true,
+        "A12": true,
+        "A13": true,
+        "A14": true,
+        "A15": true,
+        "A17": true,
+        "A18": true,
+        "A19": true,
+        "A20": true,
+        "A23": true,
+        "A26": true,
+        "A27": true,
+        "A28": true,
+        "A31": true,
+        "A33": true,
+        "A35": true,
+        "A36": true,
+        "A37": true,
+        "A38": true,
+        "D1": true,
+        "D2": true,
+        "D3": true,
+        "D4": true,
+        "D5": true,
+        "D6": true,
+        "D7": true,
+        "D8": true,
+        "D9": true,
+        "D11": true,
+        "D16": true,
+        "D21": true,
+        "D22": true,
+        "D23": true,
+        "D24": true,
+        "D25": true,
+        "D28": true,
+        "D29": true,
+        "D30": true,
+        "D32": true,
+        "D34": true
+      }
+    }
+  ],
+  "calibration": {
+    "a5": {
+      "ece": 0.063571,
+      "brier": 0.006693,
+      "n": 42,
+      "bins": [
+        {
+          "lower": 0.8,
+          "upper": 0.9,
+          "n": 10,
+          "mean_confidence": 0.85,
+          "accuracy": 1.0
+        },
+        {
+          "lower": 0.9,
+          "upper": 1.0,
+          "n": 32,
+          "mean_confidence": 0.9634,
+          "accuracy": 1.0
+        }
+      ]
+    }
+  },
+  "slot_records": [
+    {
+      "slot": "A1",
+      "length": 4,
+      "length_bucket": "4-5",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A5",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A10",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A12",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A13",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A14",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A15",
+      "length": 6,
+      "length_bucket": "6-8",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A17",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A18",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A19",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A20",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A23",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A26",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A27",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A28",
+      "length": 6,
+      "length_bucket": "6-8",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A31",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A33",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A35",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A36",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A37",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "A38",
+      "length": 4,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D1",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D2",
+      "length": 4,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D3",
+      "length": 4,
+      "length_bucket": "4-5",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D4",
+      "length": 6,
+      "length_bucket": "6-8",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D5",
+      "length": 4,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D6",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D7",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D8",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D9",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D11",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D16",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D21",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D22",
+      "length": 6,
+      "length_bucket": "6-8",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D23",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D24",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D25",
+      "length": 5,
+      "length_bucket": "4-5",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D28",
+      "length": 4,
+      "length_bucket": "4-5",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D29",
+      "length": 4,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D30",
+      "length": 4,
+      "length_bucket": "4-5",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D32",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "proper",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    },
+    {
+      "slot": "D34",
+      "length": 3,
+      "length_bucket": "3",
+      "clue_type": "definition",
+      "correct": true,
+      "puzzle_id": "mini-11-04-0",
+      "arm": "a5",
+      "seed": 0,
+      "model": "MiniMaxAI/MiniMax-M3"
+    }
+  ]
+}

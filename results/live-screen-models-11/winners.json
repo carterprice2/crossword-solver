@@ -1,0 +1,11 @@
+{
+  "stage": "screen-models",
+  "ranking": "wcr",
+  "pick": "a5",
+  "arms": [
+    "a5"
+  ],
+  "models": [
+    "MiniMaxAI/MiniMax-M3"
+  ]
+}

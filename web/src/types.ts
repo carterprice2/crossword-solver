@@ -55,6 +55,7 @@ export type Defaults = {
   model: string
   models: string[]
   repair_model: string
+  ensemble_model: string
   has_key: boolean
   arms: { id: string; label: string; description: string }[]
 }

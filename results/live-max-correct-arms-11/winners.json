@@ -1,0 +1,12 @@
+{
+  "stage": "screen-arms",
+  "ranking": "wcr",
+  "pick": "a5",
+  "arms": [
+    "a5",
+    "a6"
+  ],
+  "models": [
+    "Qwen/Qwen3.5-397B-A17B"
+  ]
+}

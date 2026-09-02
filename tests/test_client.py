@@ -402,7 +402,10 @@ class TestUsage(unittest.TestCase):
         usage.record(Completion(text="", model="b", prompt_tokens=2, completion_tokens=2))
         self.assertEqual(usage.calls, 3)
         self.assertEqual(usage.total_tokens, 21)
-        self.assertEqual(usage.by_model, {"a": 17, "b": 4})
+        self.assertEqual(
+            usage.by_model,
+            {"a": {"prompt": 11, "completion": 6}, "b": {"prompt": 2, "completion": 2}},
+        )
 
 
 if __name__ == "__main__":

@@ -219,7 +219,11 @@ I would rather state these than have them found:
 
 ## 5. What a live run should report
 
-Everything above runs offline. A live run on Nebius Token Factory adds:
+Everything above runs offline. A live run on Nebius Token Factory adds the
+model comparison matrix. Produce it in stages with `make screen-arms`, then
+`make screen-models FROM=...`, then `make final-grid FROM=...` — each stage
+writes a per-cell grid (WCR/LCR/ICR, tokens, USD, turns, time) and a
+`winners.json` you can edit before the next.
 
 1. **The model comparison matrix** — `Qwen3-30B-A3B-Instruct-2507`,
    `Qwen3-235B-A22B`, `gpt-oss-120b`, `Llama-3.3-70B-Instruct`,

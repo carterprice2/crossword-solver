@@ -56,6 +56,56 @@ const YOURS: Suite = {
   description: 'Screenshot plus Across and Down clues.',
 }
 
+const MODEL_LABELS: Record<string, string> = {
+  'Qwen/Qwen3-30B-A3B-Instruct-2507': 'Qwen 30B Instruct',
+  'Qwen/Qwen3-235B-A22B-Instruct-2507': 'Qwen 235B Instruct',
+  'Qwen/Qwen3.5-397B-A17B': 'Qwen 3.5 397B',
+  'meta-llama/Llama-3.3-70B-Instruct': 'Llama 3.3 70B',
+  'openai/gpt-oss-120b': 'gpt-oss 120B',
+  'deepseek-ai/DeepSeek-V4-Pro': 'DeepSeek V4 Pro',
+  'zai-org/GLM-5.2': 'GLM 5.2',
+  'MiniMaxAI/MiniMax-M3': 'MiniMax M3',
+}
+
+function modelLabel(id: string): string {
+  if (MODEL_LABELS[id]) return MODEL_LABELS[id]
+  return id.includes('/') ? id.slice(id.lastIndexOf('/') + 1) : id
+}
+
+function listedModels(api: string[] | undefined): string[] {
+  const catalog = Object.keys(MODEL_LABELS)
+  const known = new Set(catalog)
+  const extra = (api ?? []).filter((id) => !known.has(id) && !/kimi/i.test(id))
+  return extra.length ? [...catalog, ...extra] : catalog
+}
+
+function ModelSelect({
+  label,
+  value,
+  models,
+  disabled,
+  onChange,
+}: {
+  label: string
+  value: string
+  models: string[]
+  disabled: boolean
+  onChange: (id: string) => void
+}) {
+  return (
+    <label className="field wide">
+      <span>{label}</span>
+      <select value={value} title={value} onChange={(e) => onChange(e.target.value)} disabled={disabled}>
+        {models.map((id) => (
+          <option key={id} value={id} title={id}>
+            {modelLabel(id)}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
 export function App() {
   const [suites, setSuites] = useState<Suite[]>([])
   const [defaults, setDefaults] = useState<Defaults | null>(null)
@@ -66,6 +116,7 @@ export function App() {
   const [backend, setBackend] = useState('oracle')
   const [arm, setArm] = useState('a3')
   const [model, setModel] = useState('')
+  const [ensembleModel, setEnsembleModel] = useState('')
   const [debug, setDebug] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,6 +145,7 @@ export function App() {
         setBackend(defs.backend)
         setArm(defs.arm)
         if (defs.model) setModel(defs.model)
+        if (defs.ensemble_model) setEnsembleModel(defs.ensemble_model)
       })
       .catch((err: Error) => setError(err.message))
   }, [])
@@ -265,6 +317,7 @@ export function App() {
         arm,
         debug,
         model: liveBackend === 'nebius' ? model : undefined,
+        ensemble_model: liveBackend === 'nebius' && arm === 'a4' ? ensembleModel : undefined,
       })
       listenToJob(job.job_id, puzzle?.slots ?? 0)
     } catch (err) {
@@ -320,32 +373,40 @@ export function App() {
               </option>
             </select>
           </label>
-          <label className="field">
+          <label className="field arm">
             <span>Arm</span>
-            <select value={arm} onChange={(e) => setArm(e.target.value)} disabled={busy}>
-              {(defaults?.arms ?? [{ id: 'a3', label: 'full agent' }]).map((item) => (
-                <option key={item.id} value={item.id}>
+            <select
+              value={arm}
+              title={defaults?.arms.find((item) => item.id === arm)?.description || arm}
+              onChange={(e) => setArm(e.target.value)}
+              disabled={busy}
+            >
+              {(defaults?.arms ?? [{ id: 'a3', label: 'full agent', description: '' }]).map((item) => (
+                <option key={item.id} value={item.id} title={item.description}>
                   {item.id} · {item.label}
                 </option>
               ))}
             </select>
           </label>
           {(backend === 'nebius' || suite === 'yours' || noGold) ? (
-            <label className="field wide">
-              <span>Model</span>
-              <select
+            <>
+              <ModelSelect
+                label={arm === 'a4' ? 'Primary' : 'Model'}
                 value={model || defaults?.model || ''}
-                title={model}
-                onChange={(e) => setModel(e.target.value)}
+                models={listedModels(defaults?.models)}
                 disabled={busy}
-              >
-                {(defaults?.models ?? []).map((id) => (
-                  <option key={id} value={id} title={id}>
-                    {id.includes('/') ? id.slice(id.lastIndexOf('/') + 1) : id}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={setModel}
+              />
+              {arm === 'a4' ? (
+                <ModelSelect
+                  label="Ensemble"
+                  value={ensembleModel || defaults?.ensemble_model || ''}
+                  models={listedModels(defaults?.models)}
+                  disabled={busy}
+                  onChange={setEnsembleModel}
+                />
+              ) : null}
+            </>
           ) : null}
           <label className="toggle">
             <input
@@ -386,6 +447,7 @@ export function App() {
           busy={busy}
           arm={arm}
           model={model}
+          ensembleModel={ensembleModel}
           debug={debug}
           onError={setError}
           onReady={onIngestReady}

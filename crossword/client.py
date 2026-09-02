@@ -32,6 +32,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
+from .progress import log as progress_log
+
 DEFAULT_BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 API_KEY_ENV = "NEBIUS_API_KEY"
 
@@ -78,11 +80,12 @@ def load_env_file(*paths: str) -> list[str]:
 KNOWN_MODELS = (
     "Qwen/Qwen3-30B-A3B-Instruct-2507",
     "Qwen/Qwen3-235B-A22B-Instruct-2507",
+    "Qwen/Qwen3.5-397B-A17B",
     "meta-llama/Llama-3.3-70B-Instruct",
     "openai/gpt-oss-120b",
     "deepseek-ai/DeepSeek-V4-Pro",
-    "moonshotai/Kimi-K2.6",
     "zai-org/GLM-5.2",
+    "MiniMaxAI/MiniMax-M3",
 )
 
 DEFAULT_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507"
@@ -202,41 +205,69 @@ class NebiusClient:
         )
         delay = 1.0
         last: Exception | None = None
-        for attempt in range(self.max_retries + 1):
+        model = body.get("model") or "?"
+        tries = self.max_retries + 1
+        for attempt in range(tries):
+            progress_log(
+                f"http {path} {model} try {attempt + 1}/{tries} "
+                f"timeout={self.timeout:.0f}s"
+            )
+            stop = threading.Event()
+
+            def heartbeat(attempt: int = attempt) -> None:
+                waited = 0
+                while not stop.wait(15):
+                    waited += 15
+                    progress_log(
+                        f"http waiting {model} try {attempt + 1}/{tries} "
+                        f"+{waited}s (timeout {self.timeout:.0f}s)"
+                    )
+
+            threading.Thread(
+                target=heartbeat, name="http-wait", daemon=True
+            ).start()
+            started = time.monotonic()
+            wait = delay
             try:
-                with self._opener.open(request, timeout=self.timeout) as response:
-                    return json.loads(response.read().decode("utf-8"))
-            except urllib.error.HTTPError as exc:
-                detail = ""
                 try:
-                    detail = exc.read().decode("utf-8")[:400]
-                except Exception:  # pragma: no cover - best effort
-                    pass
-                if exc.code == 400:
-                    # Almost always guided-decoding rejecting the schema; the
-                    # caller walks the degradation ladder rather than failing.
-                    raise SchemaRejected(f"400 from {path}: {detail}") from exc
-                if exc.code in (401, 403):
-                    raise ModelError(f"{exc.code} from {path}: check {API_KEY_ENV}")
-                if exc.code not in (408, 409, 429) and exc.code < 500:
-                    raise ModelError(f"{exc.code} from {path}: {detail}") from exc
-                last = exc
-                wait = delay
-                retry_after = exc.headers.get("Retry-After") if exc.headers else None
-                if retry_after:
+                    with self._opener.open(request, timeout=self.timeout) as response:
+                        payload = json.loads(response.read().decode("utf-8"))
+                except urllib.error.HTTPError as exc:
+                    detail = ""
                     try:
-                        wait = max(wait, float(retry_after))
-                    except ValueError:
+                        detail = exc.read().decode("utf-8")[:400]
+                    except Exception:  # pragma: no cover - best effort
                         pass
-            except (urllib.error.URLError, TimeoutError, OSError) as exc:
-                last = exc
-                wait = delay
-            if attempt == self.max_retries:
+                    if exc.code == 400:
+                        # Almost always guided-decoding rejecting the schema; the
+                        # caller walks the degradation ladder rather than failing.
+                        raise SchemaRejected(f"400 from {path}: {detail}") from exc
+                    if exc.code in (401, 403):
+                        raise ModelError(f"{exc.code} from {path}: check {API_KEY_ENV}")
+                    if exc.code not in (408, 409, 429) and exc.code < 500:
+                        raise ModelError(f"{exc.code} from {path}: {detail}") from exc
+                    last = exc
+                    retry_after = exc.headers.get("Retry-After") if exc.headers else None
+                    if retry_after:
+                        try:
+                            wait = max(wait, float(retry_after))
+                        except ValueError:
+                            pass
+                except (urllib.error.URLError, TimeoutError, OSError) as exc:
+                    last = exc
+                else:
+                    elapsed = time.monotonic() - started
+                    progress_log(f"http ok {model} {elapsed:.1f}s")
+                    return payload
+            finally:
+                stop.set()
+            if attempt == tries - 1:
                 break
+            progress_log(f"http retry {model} after {last}; sleep {wait:.1f}s")
             # Jitter so a pool of threads does not retry in lockstep.
             self._sleep(wait * random.uniform(0.7, 1.3))
             delay = min(delay * 2, 30.0)
-        raise ModelError(f"{path} failed after {self.max_retries + 1} attempts: {last}")
+        raise ModelError(f"{path} failed after {tries} attempts: {last}")
 
     # -- API ---------------------------------------------------------------
 
@@ -600,7 +631,7 @@ class Usage:
     calls: int = 0
     prompt_tokens: int = 0
     completion_tokens: int = 0
-    by_model: dict[str, int] = field(default_factory=dict)
+    by_model: dict[str, dict[str, int]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def record(self, completion: Completion) -> None:
@@ -608,9 +639,11 @@ class Usage:
             self.calls += 1
             self.prompt_tokens += completion.prompt_tokens
             self.completion_tokens += completion.completion_tokens
-            self.by_model[completion.model] = (
-                self.by_model.get(completion.model, 0) + completion.total_tokens
+            bucket = self.by_model.setdefault(
+                completion.model, {"prompt": 0, "completion": 0}
             )
+            bucket["prompt"] += completion.prompt_tokens
+            bucket["completion"] += completion.completion_tokens
 
     @property
     def total_tokens(self) -> int:

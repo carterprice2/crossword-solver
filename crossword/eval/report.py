@@ -10,6 +10,7 @@ import json
 import os
 from collections import defaultdict
 
+from .recipes import rank_keys, winners_payload, write_winners
 from .stats import mcnemar, paired_bootstrap, required_n, wilson
 
 METRIC_COLUMNS = (
@@ -38,6 +39,159 @@ def _mean(values: list[float]) -> float:
     return sum(values) / len(values) if values else 0.0
 
 
+def _ok(records: list[dict]) -> list[dict]:
+    return [r for r in records if r.get("scores")]
+
+
+def _short_model(name: str) -> str:
+    if not name:
+        return "?"
+    return name.split("/")[-1]
+
+
+def _fmt_usd(value) -> str:
+    if value is None:
+        return "?"
+    return f"{float(value):.3f}"
+
+
+def _cell_row(record: dict) -> list[str]:
+    scores = record.get("scores")
+    solve = record.get("solve") or {}
+    size = (record.get("strata") or {}).get("size", "?")
+    model = _short_model(record.get("model") or "")
+    tokens = int(
+        (solve.get("prompt_tokens") or 0) + (solve.get("completion_tokens") or 0)
+    )
+    turns = str(solve.get("rounds") or 0)
+    calls = str(solve.get("calls") or 0)
+    sec = f"{float(solve.get('seconds') or 0):.1f}"
+    usd = _fmt_usd(solve.get("cost_usd"))
+    base = [size, record.get("puzzle_id", "?"), model, record.get("arm", "?")]
+    if not scores:
+        return base + ["err", "err", "err", "err", str(tokens), usd, turns, calls, sec]
+    return base + [
+        f"{scores['wcr']:.3f}",
+        f"{scores['lcr']:.3f}",
+        f"{scores['icr']:.3f}",
+        "1" if scores.get("exact") else "0",
+        str(tokens),
+        usd,
+        turns,
+        calls,
+        sec,
+    ]
+
+
+def _leaderboard_rows(records: list[dict], rank_by: str) -> list[list[str]]:
+    if rank_by == "pair":
+        keyed = []
+        for record in records:
+            row = dict(record)
+            row["_pair"] = f"{_short_model(record.get('model') or '')} {record.get('arm')}"
+            keyed.append(row)
+        names = rank_keys(keyed, "_pair")
+        groups = defaultdict(list)
+        for record in keyed:
+            if record.get("scores"):
+                groups[record["_pair"]].append(record)
+        label = "model arm"
+    else:
+        names = rank_keys(records, rank_by)
+        groups = defaultdict(list)
+        for record in _ok(records):
+            groups[record[rank_by]].append(record)
+        label = rank_by
+    rows = []
+    for index, name in enumerate(names, start=1):
+        group = groups[name]
+        wcr = _mean([r["scores"]["wcr"] for r in group])
+        costs = [r.get("solve", {}).get("cost_usd") for r in group]
+        usd = (
+            _fmt_usd(sum(costs) / len(costs))
+            if costs and all(c is not None for c in costs)
+            else "?"
+        )
+        turns = _mean([r.get("solve", {}).get("rounds") or 0 for r in group])
+        sec = _mean([r.get("solve", {}).get("seconds") or 0 for r in group])
+        rows.append(
+            [str(index), name, f"{wcr:.3f}", usd, f"{turns:.1f}", f"{sec:.1f}"]
+        )
+    return label, rows
+
+
+def winners_from_payload(payload: dict) -> dict:
+    records = payload.get("records") or []
+    stage = payload.get("stage") or "eval"
+    if stage == "screen-models":
+        models = rank_keys(records, "model")
+        arms = list(payload.get("carry_arms") or []) or rank_keys(records, "arm")
+        return winners_payload(stage, arms=arms, models=models)
+    if stage == "screen-arms":
+        arms = rank_keys(records, "arm")
+        models = []
+        seen: set[str] = set()
+        for record in records:
+            model = record.get("model")
+            if model and model not in seen:
+                seen.add(model)
+                models.append(model)
+        return winners_payload(stage, arms=arms, models=models)
+    return winners_payload(
+        stage,
+        arms=rank_keys(records, "arm"),
+        models=rank_keys(records, "model"),
+    )
+
+
+def _json_misses(records: list[dict]) -> int:
+    return sum(
+        1
+        for record in records
+        for warning in (record.get("solve") or {}).get("warnings") or []
+        if "no JSON object" in str(warning)
+    )
+
+
+def _pick_lines(
+    records: list[dict], arms: dict, rank_by: str
+) -> list[str]:
+    ranked = rank_keys(records, rank_by)
+    if not ranked:
+        return []
+    pick = ranked[0]
+    label = (arms.get(pick) or {}).get("label") or pick
+    lines = [
+        "## Pick",
+        "",
+        f"**Use `{pick}`.** It ranked first by WCR ({label}).",
+        "",
+    ]
+    by_name = defaultdict(list)
+    for record in _ok(records):
+        by_name[record[rank_by]].append(record)
+    for name in ranked:
+        group = by_name.get(name) or []
+        wcr = _mean([r["scores"]["wcr"] for r in group])
+        open_slots = _mean(
+            [len((r.get("solve") or {}).get("open_slots") or []) for r in group]
+        )
+        mark = " ← use this" if name == pick else ""
+        lines.append(
+            f"- `{name}` WCR {wcr:.3f}, open slots {open_slots:.0f}{mark}"
+        )
+    lines.append("")
+    misses = _json_misses(records)
+    if misses:
+        lines.append(
+            f"{misses} warning(s) were `no JSON object found in response`. "
+            "When the model returns no candidates, forcing a guess (a6) cannot "
+            "beat declining (a5) — there is nothing to guess from."
+        )
+        lines.append("")
+    return lines
+
+
 def summarize(payload: dict) -> str:
     records = payload["records"]
     arms = payload["arms"]
@@ -62,6 +216,29 @@ def summarize(payload: dict) -> str:
     )
     lines.append("")
 
+    # -- per-cell grid ----------------------------------------------------
+    if records:
+        lines.append("## Results grid")
+        lines.append("")
+        grid_headers = [
+            "size", "puzzle", "model", "arm", "WCR", "LCR", "ICR",
+            "exact", "tokens", "USD", "turns", "calls", "sec",
+        ]
+        lines.append(_table(grid_headers, [_cell_row(r) for r in records]))
+        lines.append("")
+        rank_by = payload.get("rank_by") or "arm"
+        label, board = _leaderboard_rows(records, rank_by)
+        if board:
+            lines.append("## Leaderboard")
+            lines.append("")
+            lines.append(
+                _table(["rank", label, "WCR", "USD", "turns", "sec"], board)
+            )
+            lines.append("")
+            lines.append("Ranked by mean WCR. Cost is a tie-break only.")
+            lines.append("")
+            lines.extend(_pick_lines(records, arms, rank_by))
+
     # -- headline table ---------------------------------------------------
     lines.append("## Arms")
     lines.append("")
@@ -69,7 +246,7 @@ def summarize(payload: dict) -> str:
     headers += ["Open", "Calls", "Tokens", "Sec"]
     rows = []
     for name in arm_names:
-        group = by_arm.get(name, [])
+        group = _ok(by_arm.get(name, []))
         if not group:
             continue
         row = [name, arms[name]["label"]]
@@ -108,13 +285,13 @@ def summarize(payload: dict) -> str:
         lines.append("")
         comparison_rows = []
         for high, low in ladder:
-            a = [r["scores"]["wcr"] for r in by_arm.get(high, [])]
-            b = [r["scores"]["wcr"] for r in by_arm.get(low, [])]
+            a = [r["scores"]["wcr"] for r in _ok(by_arm.get(high, []))]
+            b = [r["scores"]["wcr"] for r in _ok(by_arm.get(low, []))]
             if len(a) != len(b) or not a:
                 continue
             result = paired_bootstrap(a, b, resamples=10_000, seed=1)
-            exact_a = [r["scores"]["exact"] for r in by_arm[high]]
-            exact_b = [r["scores"]["exact"] for r in by_arm[low]]
+            exact_a = [r["scores"]["exact"] for r in _ok(by_arm[high])]
+            exact_b = [r["scores"]["exact"] for r in _ok(by_arm[low])]
             test = mcnemar(exact_a, exact_b)
             comparison_rows.append(
                 [
@@ -139,7 +316,7 @@ def summarize(payload: dict) -> str:
     lines.append("")
     exact_rows = []
     for name in arm_names:
-        group = by_arm.get(name, [])
+        group = _ok(by_arm.get(name, []))
         if not group:
             continue
         successes = sum(1 for r in group if r["scores"]["exact"])
@@ -201,9 +378,9 @@ def summarize(payload: dict) -> str:
     for name in arm_names:
         row = [name]
         for size in sizes_seen:
-            subset = [
-                r for r in by_arm.get(name, []) if r["strata"].get("size") == size
-            ]
+            subset = _ok(
+                [r for r in by_arm.get(name, []) if r["strata"].get("size") == size]
+            )
             row.append(f"{_mean([r['scores']['wcr'] for r in subset]):.3f}" if subset else "-")
         rows.append(row)
     lines.append(_table(headers, rows))
@@ -224,11 +401,13 @@ def summarize(payload: dict) -> str:
         for name in arm_names:
             row = [name]
             for provenance in provenances:
-                subset = [
-                    r
-                    for r in by_arm.get(name, [])
-                    if r["strata"].get("provenance") == provenance
-                ]
+                subset = _ok(
+                    [
+                        r
+                        for r in by_arm.get(name, [])
+                        if r["strata"].get("provenance") == provenance
+                    ]
+                )
                 row.append(
                     f"{_mean([r['scores']['wcr'] for r in subset]):.3f}" if subset else "-"
                 )
@@ -290,4 +469,5 @@ def write_summary(directory: str) -> str:
     path = os.path.join(directory, "summary.md")
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(text)
+    write_winners(directory, winners_from_payload(payload))
     return path
