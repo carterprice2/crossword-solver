@@ -21,7 +21,7 @@ No installation, no dependencies, no API key:
 ```bash
 git clone <this repo>
 cd crossword-solver
-make test     # 271 tests, offline (API tests skip without FastAPI)
+make test     # 299 tests, offline (API tests skip without FastAPI)
 make demo     # watch a solve, offline
 ```
 
@@ -45,10 +45,12 @@ make eval                                    # the ablation matrix
 ### Web UI
 
 Pick a mini or NYT puzzle, watch the grid fill, and see gold-check scores.
-Check **Debug candidates** to inspect per-slot LLM lists against gold (HIT vs
-MISS). After a solve the answer-key grid sits beside the agent's fill.
-The agent itself is unchanged; the page is another listener on the same event
-stream as `--live`.
+**Your puzzle** takes a grid screenshot plus Across/Down clues (or a `.xd`
+paste) and starts a live solve when the mask matches. Check **Debug
+candidates** to inspect per-slot LLM lists against gold (HIT vs MISS) on
+corpus puzzles. After a gold-keyed solve the answer-key grid sits beside the
+agent's fill. The agent itself is unchanged; the page is another listener on
+the same event stream as `--live`.
 
 ```bash
 python3 -m venv .venv
@@ -58,9 +60,13 @@ make serve PY=.venv/bin/python     # builds the UI, then http://127.0.0.1:8000
 ```
 
 Oracle mode is the default when `NEBIUS_API_KEY` is unset, so the first visit
-works offline. For live solves, put the key in `.env` and choose Nebius in the
-UI. Dev loop: `make serve-dev PY=.venv/bin/python` in one terminal and
-`cd web && npm run dev` in another (Vite on :5173 proxies `/api` to :8000).
+works offline. Uploads need a Token Factory key (vision + solve). For live
+corpus solves, put the key in `.env` and choose Nebius in the UI. Dev loop:
+`make serve-dev PY=.venv/bin/python` in one terminal and `cd web && npm run
+dev` in another (Vite on :5173 proxies `/api` to :8000).
+
+To put the page on a Nebius CPU VM in front of Token Factory, see
+[docs/hosting.md](docs/hosting.md).
 
 Live verification is staged so a cheap check happens before a token-heavy one:
 
@@ -305,8 +311,11 @@ crossword/
   gen/             bank, grid templates, filler
   ui/live.py       the animated terminal view
   run.py           shared solve wiring for the CLI and the web API
+  ingest.py        screenshot/.xd → Puzzle (no gold unless .xd has answers)
   api/             FastAPI job server (optional extra)
 web/               Vite + React UI
+deploy/            Dockerfile + Compose + Caddy for a Nebius CPU VM
+docs/hosting.md    operator checklist for that VM
 corpus/            generated puzzles, grid templates, word bank
 scripts/           build_bank.py, make_corpus.py, oracle_sweep.py, fetch_xd.py,
                    write_nyt_2021_05_28.py

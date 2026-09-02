@@ -5,6 +5,7 @@ type Props = {
   puzzle: PuzzleDetail
   batches: CandidateBatch[]
   assignment: Record<string, string>
+  showGold?: boolean
 }
 
 type Filter = 'all' | 'miss' | 'hit'
@@ -14,7 +15,7 @@ function slotLabel(id: string, puzzle: PuzzleDetail): string {
   return clue ? `${clue.number}. ${clue.clue}` : id
 }
 
-export function CandidateDebug({ puzzle, batches, assignment }: Props) {
+export function CandidateDebug({ puzzle, batches, assignment, showGold = true }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
 
   const rows = useMemo(() => {
@@ -44,20 +45,23 @@ export function CandidateDebug({ puzzle, batches, assignment }: Props) {
       <div className="debug-head">
         <h2>Candidates</h2>
         <p>
-          HIT means gold was in this batch. A miss here is a generation failure; a hit that
-          still scores wrong is a search/repair failure.
+          {showGold
+            ? 'HIT means gold was in this batch. A miss here is a generation failure; a hit that still scores wrong is a search/repair failure.'
+            : 'No answer key on this puzzle, so these are the model lists only.'}
         </p>
-        <div className="debug-filters" role="group" aria-label="Filter candidates">
-          <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>
-            All
-          </button>
-          <button type="button" className={filter === 'miss' ? 'on' : ''} onClick={() => setFilter('miss')}>
-            Miss {misses}
-          </button>
-          <button type="button" className={filter === 'hit' ? 'on' : ''} onClick={() => setFilter('hit')}>
-            Hit {hits}
-          </button>
-        </div>
+        {showGold ? (
+          <div className="debug-filters" role="group" aria-label="Filter candidates">
+            <button type="button" className={filter === 'all' ? 'on' : ''} onClick={() => setFilter('all')}>
+              All
+            </button>
+            <button type="button" className={filter === 'miss' ? 'on' : ''} onClick={() => setFilter('miss')}>
+              Miss {misses}
+            </button>
+            <button type="button" className={filter === 'hit' ? 'on' : ''} onClick={() => setFilter('hit')}>
+              Hit {hits}
+            </button>
+          </div>
+        ) : null}
       </div>
       {batches.length === 0 ? (
         <p className="debug-empty">Waiting for candidate batches from the model…</p>
@@ -69,8 +73,8 @@ export function CandidateDebug({ puzzle, batches, assignment }: Props) {
             <th>Slot</th>
             <th>Clue</th>
             <th>Pattern</th>
-            <th>Gold</th>
-            <th></th>
+            {showGold ? <th>Gold</th> : null}
+            {showGold ? <th></th> : null}
             <th>Assigned</th>
             <th>Candidates</th>
           </tr>
@@ -82,8 +86,10 @@ export function CandidateDebug({ puzzle, batches, assignment }: Props) {
               <td className="mono">{row.id}</td>
               <td>{slotLabel(row.id, puzzle)}</td>
               <td className="mono">{row.pattern}</td>
-              <td className="mono">{row.gold ?? '—'}</td>
-              <td>{row.hit === true ? 'HIT' : row.hit === false ? 'MISS' : ''}</td>
+              {showGold ? <td className="mono">{row.gold ?? '—'}</td> : null}
+              {showGold ? (
+                <td>{row.hit === true ? 'HIT' : row.hit === false ? 'MISS' : ''}</td>
+              ) : null}
               <td className="mono">{row.assigned ?? '—'}</td>
               <td>
                 {!row.candidates?.length

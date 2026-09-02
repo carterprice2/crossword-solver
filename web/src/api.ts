@@ -1,4 +1,4 @@
-import type { Defaults, PuzzleDetail, PuzzleSummary, Suite } from './types'
+import type { Defaults, IngestResponse, PuzzleDetail, PuzzleSummary, Suite } from './types'
 
 async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url)
@@ -57,4 +57,36 @@ export async function startSolve(body: {
     model: string
     debug: boolean
   }>
+}
+
+async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) {
+    throw new Error(await errorDetail(response))
+  }
+  return response.json() as Promise<T>
+}
+
+export function ingestPuzzle(body: {
+  image?: string
+  across?: string
+  down?: string
+  title?: string
+  xd?: string
+  arm?: string
+  model?: string
+  debug?: boolean
+}): Promise<IngestResponse> {
+  return postJson('/api/ingest', body)
+}
+
+export function fixIngestGrid(
+  draftId: string,
+  body: { rows: string[]; across?: string; down?: string; arm?: string; model?: string; debug?: boolean },
+): Promise<IngestResponse> {
+  return postJson(`/api/ingest/${encodeURIComponent(draftId)}/grid`, body)
 }

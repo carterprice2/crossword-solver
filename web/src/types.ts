@@ -110,6 +110,22 @@ export type SolveEvent = {
   solve?: { calls: number; seconds: number; prompt_tokens?: number; completion_tokens?: number }
 }
 
+export type IngestResponse = {
+  status: 'ready' | 'needs_edit'
+  draft_id?: string
+  job_id?: string
+  puzzle?: PuzzleDetail | null
+  rows?: string[]
+  height?: number
+  width?: number
+  across_slots?: number
+  down_slots?: number
+  across_clues?: number
+  down_clues?: number
+  unknown_numbers?: string[]
+  message?: string
+}
+
 export type CellState = {
   letter: string
   correct: boolean | null

@@ -87,17 +87,51 @@ def candidates_schema(*, strict: bool = True, constrained: bool = True) -> dict:
     return {"type": "json_schema", "json_schema": body}
 
 
-def response_format_for(rung: str) -> dict | None:
+def grid_schema(*, strict: bool = True, constrained: bool = True) -> dict:
+    """The response schema for a vision parse of a crossword grid photo."""
+    row: dict = {"type": "string"}
+    if constrained:
+        row["pattern"] = "^[#.A-Za-z]+$"
+        row["minLength"] = 2
+        row["maxLength"] = 15
+    rows: dict = {"type": "array", "items": row, "minItems": 2, "maxItems": 15}
+    schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["rows"],
+        "properties": {"rows": rows},
+    }
+    body: dict = {"name": "crossword_grid", "schema": schema}
+    if strict:
+        body["strict"] = True
+    return {"type": "json_schema", "json_schema": body}
+
+
+def response_format_for(rung: str, schema_fn=candidates_schema) -> dict | None:
     """The ``response_format`` payload for a given rung of the ladder."""
     if rung == STRICT:
-        return candidates_schema(strict=True, constrained=True)
+        return schema_fn(strict=True, constrained=True)
     if rung == LOOSE:
-        return candidates_schema(strict=True, constrained=False)
+        return schema_fn(strict=True, constrained=False)
     if rung == NO_STRICT:
-        return candidates_schema(strict=False, constrained=False)
+        return schema_fn(strict=False, constrained=False)
     if rung == JSON_OBJECT:
         return {"type": "json_object"}
     return None
+
+
+def parse_grid_rows(text: str) -> list[str]:
+    """Pull ``rows`` out of a vision completion. Raises ValueError if absent."""
+    payload = extract_json(text)
+    if not payload:
+        raise ValueError("no JSON object in vision output")
+    rows = payload.get("rows")
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("vision output has no rows")
+    out = [str(row).strip().upper().replace(" ", "") for row in rows]
+    if any(not row for row in out):
+        raise ValueError("vision output has an empty row")
+    return out
 
 
 def strip_reasoning(text: str) -> str:
